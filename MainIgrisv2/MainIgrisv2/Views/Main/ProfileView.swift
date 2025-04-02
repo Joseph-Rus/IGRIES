@@ -1,6 +1,7 @@
 import SwiftUI
 import FirebaseAuth
 import PhotosUI
+import FirebaseFirestore
 
 struct ProfileView: View {
     @EnvironmentObject var sessionManager: SessionManager
@@ -8,6 +9,8 @@ struct ProfileView: View {
     @Environment(\.colorScheme) var colorScheme
     
     @State private var showingLogoutAlert = false
+    @State private var showingDeleteAccountAlert = false
+    @State private var showingDeleteConfirmationAlert = false
     @State private var userEmail: String = ""
     @State private var userName: String = ""
     @State private var userJoinDate: String = "Unknown"
@@ -103,28 +106,53 @@ struct ProfileView: View {
                         
                         Spacer(minLength: 30)
                         
-                        // Logout button
-                        Button(action: {
-                            showingLogoutAlert = true
-                        }) {
-                            HStack {
-                                Image(systemName: "rectangle.portrait.and.arrow.right")
-                                    .font(.system(size: 16, weight: .semibold))
-                                Text("Logout")
-                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                            }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [Color(hex: "FF4757"), Color(hex: "FF6B81")]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
+                        VStack(spacing: 16) {
+                            // Logout button
+                            Button(action: {
+                                showingLogoutAlert = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                                        .font(.system(size: 16, weight: .semibold))
+                                    Text("Logout")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [Color(hex: "FF4757"), Color(hex: "FF6B81")]),
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
                                 )
-                            )
-                            .cornerRadius(16)
-                            .shadow(color: Color(hex: "FF4757").opacity(0.3), radius: 10, x: 0, y: 5)
+                                .cornerRadius(16)
+                                .shadow(color: Color(hex: "FF4757").opacity(0.3), radius: 10, x: 0, y: 5)
+                            }
+                            
+                            // Delete account button
+                            Button(action: {
+                                showingDeleteAccountAlert = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "trash.fill")
+                                        .font(.system(size: 16, weight: .semibold))
+                                    Text("Delete Account")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(
+                                    Color(hex: "2C2C4A")
+                                )
+                                .cornerRadius(16)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(Color(hex: "FF4757"), lineWidth: 1)
+                                )
+                            }
                         }
                         .padding(.horizontal)
                         .padding(.bottom, 30)
@@ -140,6 +168,22 @@ struct ProfileView: View {
                 Button("Cancel", role: .cancel) {}
             }, message: {
                 Text("Are you sure you want to logout?")
+            })
+            .alert("Delete Account", isPresented: $showingDeleteAccountAlert, actions: {
+                Button("Delete", role: .destructive) {
+                    showingDeleteConfirmationAlert = true
+                }
+                Button("Cancel", role: .cancel) {}
+            }, message: {
+                Text("Are you sure you want to delete your account? This action cannot be undone.")
+            })
+            .alert("Confirm Deletion", isPresented: $showingDeleteConfirmationAlert, actions: {
+                Button("Confirm Delete", role: .destructive) {
+                    deleteUserAccount()
+                }
+                Button("Cancel", role: .cancel) {}
+            }, message: {
+                Text("This will permanently delete your account and all associated data. Type your password to confirm.")
             })
             .alert("Success", isPresented: $showingNameSavedAlert) {
                 Button("OK", role: .cancel) {}
@@ -278,6 +322,68 @@ struct ProfileView: View {
         // Save profile image separately only when it changes
         if profileImage != nil {
             saveProfileImage()
+        }
+    }
+    
+    private func deleteUserAccount() {
+        guard let user = Auth.auth().currentUser else { return }
+        
+        // First: Delete user data from Firestore database
+        let db = Firestore.firestore()
+        let userId = user.uid
+        
+        // Delete user document from users collection
+        db.collection("users").document(userId).delete { error in
+            if let error = error {
+                print("Error removing user document: \(error.localizedDescription)")
+            } else {
+                print("User document successfully deleted")
+            }
+        }
+        
+        // Delete user tasks from tasks collection
+        db.collection("tasks").whereField("userId", isEqualTo: userId)
+            .getDocuments { (querySnapshot, error) in
+                if let error = error {
+                    print("Error getting user tasks: \(error.localizedDescription)")
+                } else if let documents = querySnapshot?.documents {
+                    // Delete each task document
+                    let batch = db.batch()
+                    for document in documents {
+                        batch.deleteDocument(document.reference)
+                    }
+                    
+                    // Commit the batch delete
+                    batch.commit { error in
+                        if let error = error {
+                            print("Error deleting user tasks: \(error.localizedDescription)")
+                        } else {
+                            print("User tasks successfully deleted")
+                        }
+                    }
+                }
+            }
+        
+        // Delete user data from UserDefaults
+        UserDefaults.standard.removeObject(forKey: "profileImage_\(userId)")
+        // Add any other user-specific data cleanup here
+        
+        // Finally: Delete the user account from Firebase Auth
+        user.delete { error in
+            if let error = error {
+                print("Error deleting user account: \(error.localizedDescription)")
+                // You might want to show an error alert here
+            } else {
+                print("User account successfully deleted")
+                
+                // Clear session data
+                self.sessionManager.signOut()
+                
+                // Reset to login screen
+                DispatchQueue.main.async {
+                    self.resetToLogin()
+                }
+            }
         }
     }
     
