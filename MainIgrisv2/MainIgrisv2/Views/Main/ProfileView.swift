@@ -19,68 +19,63 @@ struct ProfileView: View {
     @State private var showingCameraSheet = false
     @State private var showingImageSourceOptions = false
     
+    // Modern dark theme colors
+    private let accentColor = Color(hex: "6C5CE7")
+    private let secondaryAccent = Color(hex: "A29BFE")
+    private let darkBackground = Color(hex: "0F1120")
+    private let cardBackground = Color(hex: "1A1B2E")
+    private let textPrimary = Color(hex: "FFFFFF")
+    private let textSecondary = Color(hex: "A0A0B2")
+    
+    // Background gradient - modern dark
+    private var backgroundGradient: some View {
+        LinearGradient(
+            gradient: Gradient(colors: [
+                Color(hex: "0F1120"),
+                Color(hex: "151937")
+            ]),
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea()
+    }
+    
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background gradient - already matches TodoListView
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color.blue.opacity(0.7),
-                        Color.purple.opacity(0.7)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                backgroundGradient
                 
                 // Content
                 ScrollView {
-                    VStack(spacing: 25) {
+                    VStack(spacing: 28) {
                         // Profile header
                         VStack(spacing: 20) {
-                            // Profile image with edit button
-                            ZStack(alignment: .bottomTrailing) {
-                                // Profile image
-                                Group {
-                                    if let profileImage = profileImage {
-                                        Image(uiImage: profileImage)
-                                            .resizable()
-                                            .scaledToFill()
-                                    } else {
-                                        Image("MainKnight")
-                                            .resizable()
-                                            .scaledToFill()
-                                    }
+                            // Profile image without edit button
+                            Group {
+                                if let profileImage = profileImage {
+                                    Image(uiImage: profileImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                } else {
+                                    Image("MainKnight")
+                                        .resizable()
+                                        .scaledToFill()
                                 }
-                                .frame(width: 120, height: 120)
-                                .clipShape(Circle())
-                                .overlay(Circle().stroke(Color.white, lineWidth: 3))
-                                .shadow(color: Color.black.opacity(0.2), radius: 5)
-                                .padding(5)
-                                
-                                // Edit button
-                                Button(action: {
-                                    showingImageSourceOptions = true
-                                }) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.blue)
-                                            .frame(width: 36, height: 36)
-                                        
-                                        Image(systemName: "camera.fill")
-                                            .font(.system(size: 18))
-                                            .foregroundColor(.white)
-                                    }
-                                }
-                                .offset(x: 5, y: 5)
                             }
-                            .padding(.top, 20)
+                            .frame(width: 120, height: 120)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(accentColor, lineWidth: 3))
+                            .shadow(color: Color.black.opacity(0.2), radius: 8)
+                            .padding(5)
+                            .onTapGesture {
+                                showingImageSourceOptions = true
+                            }
                             
                             // User name (editable)
                             TextField("Enter your name", text: $userName)
-                                .font(.title2.bold())
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
                                 .multilineTextAlignment(.center)
-                                .foregroundColor(.white)
+                                .foregroundColor(textPrimary)
                                 .submitLabel(.done)
                                 .onSubmit {
                                     saveUserName()
@@ -88,20 +83,22 @@ struct ProfileView: View {
                                 .padding(.horizontal)
                                 .padding(.bottom, 5)
                         }
-                        .padding()
+                        .padding(.top, 20)
                         
-                        // Profile details card - updated to match TodoListView style
-                        VStack(spacing: 20) {
+                        // Profile details card - modern dark style
+                        VStack(spacing: 24) {
                             // User info section
                             infoSection(title: "Personal Information") {
                                 infoField(icon: "envelope.fill", title: "Email", value: userEmail)
                                 infoField(icon: "calendar", title: "Joined", value: userJoinDate)
                             }
                         }
-                        .padding()
-                        .background(Color.white.opacity(0.2)) // Updated to match TodoListView transparency
-                        .cornerRadius(10) // Updated to match TodoListView corner radius
-                        .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2) // Updated to match TodoListView shadow
+                        .padding(20)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(cardBackground)
+                                .shadow(color: Color.black.opacity(0.15), radius: 15, x: 0, y: 5)
+                        )
                         .padding(.horizontal)
                         
                         Spacer(minLength: 30)
@@ -112,21 +109,22 @@ struct ProfileView: View {
                         }) {
                             HStack {
                                 Image(systemName: "rectangle.portrait.and.arrow.right")
+                                    .font(.system(size: 16, weight: .semibold))
                                 Text("Logout")
+                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
                             }
-                            .fontWeight(.semibold)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding()
+                            .padding(.vertical, 16)
                             .background(
                                 LinearGradient(
-                                    gradient: Gradient(colors: [.red.opacity(0.8), .orange]),
+                                    gradient: Gradient(colors: [Color(hex: "FF4757"), Color(hex: "FF6B81")]),
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
                             )
-                            .cornerRadius(10) // Updated to match TodoListView corner radius
-                            .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2) // Updated to match TodoListView shadow
+                            .cornerRadius(16)
+                            .shadow(color: Color(hex: "FF4757").opacity(0.3), radius: 10, x: 0, y: 5)
                         }
                         .padding(.horizontal)
                         .padding(.bottom, 30)
@@ -146,7 +144,7 @@ struct ProfileView: View {
             .alert("Success", isPresented: $showingNameSavedAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text("Username saved successfully")
+                Text("Profile updated successfully")
             }
             .actionSheet(isPresented: $showingImageSourceOptions) {
                 ActionSheet(
@@ -176,25 +174,30 @@ struct ProfileView: View {
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Profile")
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundColor(textPrimary)
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: saveUserName) {
                         Text("Save")
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .foregroundColor(accentColor)
                     }
                 }
             }
         }
-        .preferredColorScheme(.dark) // Added to match TodoListView
+        .preferredColorScheme(.dark)
     }
     
     private func infoSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 15) {
+        VStack(alignment: .leading, spacing: 18) {
             Text(title)
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundColor(.white) // Updated to always use white to match TodoListView
-                .padding(.horizontal)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(textPrimary)
+                .padding(.horizontal, 4)
             
             content()
         }
@@ -202,26 +205,33 @@ struct ProfileView: View {
     
     private func infoField(icon: String, title: String, value: String) -> some View {
         HStack {
-            Image(systemName: icon)
-                .foregroundColor(.white) // Updated to white to match TodoListView
-                .frame(width: 30)
+            ZStack {
+                Circle()
+                    .fill(accentColor.opacity(0.2))
+                    .frame(width: 36, height: 36)
+                
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(accentColor)
+            }
             
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.7)) // Updated to match TodoListView
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(textSecondary)
                 
                 Text(value)
-                    .font(.body)
-                    .foregroundColor(.white) // Updated to always use white to match TodoListView
+                    .font(.system(size: 16, design: .rounded))
+                    .foregroundColor(textPrimary)
             }
             
             Spacer()
         }
-        .padding()
-        .background(Color.white.opacity(0.2)) // Updated to match TodoListView
-        .cornerRadius(10) // Updated to match TodoListView
-        .padding(.horizontal)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(hex: "1D1E33"))
+        )
     }
     
     private func loadUserData() {
@@ -305,7 +315,7 @@ struct PhotoPicker: UIViewControllerRepresentable {
         Coordinator(self)
     }
     
-    // 3. Optimize the image picking with these changes to PhotoPicker Coordinator:
+    // Optimize the image picking with these changes to PhotoPicker Coordinator:
     class Coordinator: NSObject, PHPickerViewControllerDelegate {
         let parent: PhotoPicker
         
@@ -368,7 +378,6 @@ struct PhotoPicker: UIViewControllerRepresentable {
             return resizedImage
         }
     }
-
 }
 
 // Camera View for taking photos
@@ -415,10 +424,38 @@ struct CameraView: UIViewControllerRepresentable {
     }
 }
 
+// MARK: - Color Extension
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+        
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
 struct ProfileView_Previews: PreviewProvider {
     static var previews: some View {
         ProfileView()
             .environmentObject(SessionManager())
-            .preferredColorScheme(.dark) // Added to match TodoListView
+            .preferredColorScheme(.dark)
     }
 }

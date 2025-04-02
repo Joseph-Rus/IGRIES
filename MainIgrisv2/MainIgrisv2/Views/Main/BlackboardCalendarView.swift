@@ -1,61 +1,63 @@
 import SwiftUI
 
-// Deprecated unless specific use case is clarified
 struct BlackboardCalendarView: View {
-    @State private var blackboardEvents: [EventItem] = []
+    @EnvironmentObject var taskVM: TaskViewModel
+    @EnvironmentObject var sessionManager: SessionManager
+    @State private var blackboardTasks: [TaskItem] = []
     @State private var isLoading = false
     @Environment(\.colorScheme) var colorScheme
     
     let icsURL = "https://calbaptist.blackboard.com/webapps/calendar/calendarFeed/02190916b6604c7ba3be7648eddd9f4f/learn.ics"
     
+    // Reference to ThemeManager
+    private let theme = ThemeManager.shared
+    
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background gradient matching TodoListView
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color.blue.opacity(0.7),
-                        Color.purple.opacity(0.7)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                // Use ThemeManager's background gradient
+                theme.backgroundGradient
+                    .ignoresSafeArea()
                 
                 VStack {
                     if isLoading {
                         ProgressView("Loading Calendar...")
                             .padding()
-                            .foregroundColor(.white)
-                    } else if blackboardEvents.isEmpty {
+                            .foregroundColor(theme.textPrimary)
+                    } else if blackboardTasks.isEmpty {
                         emptyStateView
                     } else {
                         List {
-                            ForEach(blackboardEvents) { event in
-                                eventRowView(event)
+                            ForEach(blackboardTasks) { task in
+                                taskRowView(task)
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
+                                    .swipeActions(edge: .leading) {
+                                        Button {
+                                            addToTasks(task)
+                                        } label: {
+                                            Label("Add to Tasks", systemImage: "plus.circle")
+                                        }
+                                        .tint(theme.accentColor)
+                                    }
                             }
                         }
                         .listStyle(PlainListStyle())
+                        .scrollContentBackground(.hidden)
                     }
                     
                     Button("Fetch Blackboard Calendar") {
                         fetchBlackboardCalendar()
                     }
+                    .font(theme.bodyFont())
                     .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                    .foregroundColor(theme.textPrimary)
                     .padding()
-                    .background(
-                        LinearGradient(
-                            gradient: Gradient(colors: [.blue, .purple]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .cornerRadius(12)
-                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                    .background(theme.taskButtonGradient)
+                    .cornerRadius(theme.cornerRadiusMedium)
+                    .modifier(theme.buttonShadow())
                     .padding(.bottom, 20)
+                    .disabled(isLoading) // Prevent multiple taps during loading
                 }
                 .navigationTitle("Blackboard Calendar")
             }
@@ -63,51 +65,59 @@ struct BlackboardCalendarView: View {
         .preferredColorScheme(.dark)
     }
     
-    // Empty State View styled like TodoListView
+    // Empty State View styled with ThemeManager
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: "calendar")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 100, height: 100)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(theme.textSecondary.opacity(0.6))
             
-            Text("No events found")
-                .font(.headline)
-                .foregroundColor(.white)
+            Text("No tasks found")
+                .font(theme.titleFont())
+                .foregroundColor(theme.textPrimary)
             
             Text("Tap the button below to fetch your Blackboard calendar")
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.8))
+                .font(theme.captionFont())
+                .foregroundColor(theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    // Event Row View styled like TodoListView
-    private func eventRowView(_ event: EventItem) -> some View {
+    // Task Row View styled with ThemeManager
+    private func taskRowView(_ task: TaskItem) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(event.name)
-                .font(.headline)
-                .foregroundColor(.white)
+            HStack {
+                Text(task.title)
+                    .font(theme.bodyFont())
+                    .foregroundColor(theme.textPrimary)
+                
+                if let course = task.course, !course.isEmpty {
+                    Text("• \(course)")
+                        .font(theme.captionFont())
+                        .foregroundColor(theme.secondaryAccent.opacity(0.9))
+                }
+            }
             
-            Text("Starts: \(event.startDate.formatted(date: .abbreviated, time: .shortened))")
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.7))
+            Text("Due: \(task.dueDate.formatted(date: .abbreviated, time: .shortened))")
+                .font(theme.captionFont())
+                .foregroundColor(theme.textSecondary)
             
-            if !event.description.isEmpty {
-                Text(event.description)
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
+            if !task.description.isEmpty {
+                Text(task.description)
+                    .font(theme.captionFont(size: 12))
+                    .foregroundColor(theme.textSecondary)
                     .lineLimit(2)
             }
         }
         .padding()
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(0.2))
-                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+            RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                .fill(theme.cardBackgroundAlt)
+                .modifier(theme.standardShadow(radius: 3, x: 0, y: 2))
         )
         .padding(.horizontal)
         .padding(.vertical, 5)
@@ -116,15 +126,53 @@ struct BlackboardCalendarView: View {
     private func fetchBlackboardCalendar() {
         isLoading = true
         let parser = ICSParser()
-        parser.fetchAndParseICS(from: icsURL) { events in
-            self.blackboardEvents = events
+        
+        parser.fetchAndParseICS(from: icsURL) { eventWrappers, error in
+            // Check for an error
+            if let error = error {
+                print("Error fetching ICS: \(error.localizedDescription)")
+                self.isLoading = false
+                return
+            }
+            
+            // Handle the successful case with eventWrappers
+            if let eventWrappers = eventWrappers {
+                self.blackboardTasks = eventWrappers.map { wrapper in
+                    var task = wrapper.task
+                    task.id = UUID().uuidString // Assign temporary ID for display
+                    if let userId = sessionManager.currentUserId {
+                        task.userId = userId
+                    }
+                    print("Parsed task: \(task.title), Due: \(task.dueDate), Course: \(task.course ?? "None")")
+                    return task
+                }
+                print("Set blackboardTasks with \(self.blackboardTasks.count) tasks")
+            } else {
+                print("No event wrappers returned")
+            }
+            
+            // Ensure loading state is reset
             self.isLoading = false
         }
+    }
+    private func addToTasks(_ task: TaskItem) {
+        guard let userId = sessionManager.currentUserId else { return }
+        
+        // Create a new task with the current user ID and nil ID for Firestore
+        var newTask = task
+        newTask.userId = userId
+        newTask.id = nil // Ensure Firestore generates a new ID
+        
+        // Add to tasks
+        taskVM.addTask(newTask)
     }
 }
 
 struct BlackboardCalendarView_Previews: PreviewProvider {
     static var previews: some View {
         BlackboardCalendarView()
+            .environmentObject(TaskViewModel())
+            .environmentObject(SessionManager())
+            .preferredColorScheme(.dark)
     }
-}crunc
+}

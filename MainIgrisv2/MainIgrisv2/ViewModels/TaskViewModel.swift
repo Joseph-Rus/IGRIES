@@ -7,284 +7,343 @@ class TaskViewModel: ObservableObject {
     @Published var todoListTasks: [TaskItem] = []
     @Published var icsLink: String?
     private var db = Firestore.firestore()
+    private let parser = ICSParser()
     
-    func fetchTasks(for userId: String) {
-        db.collection("tasks")
-            .whereField("userId", isEqualTo: userId)
-            .addSnapshotListener { [weak self] snapshot, error in
-                guard let self = self else { return }
-                
-                if let error = error {
-                    print("Error fetching tasks: \(error)")
-                    return
-                }
-                
-                guard let documents = snapshot?.documents else {
-                    print("No tasks found")
-                    return
-                }
-                
-                self.tasks = documents.compactMap { try? $0.data(as: TaskItem.self) }
-                
-                // Only schedule notifications for future, incomplete tasks
-                let futureTasksForNotification = self.tasks.filter { task in
-                    !task.isComplete &&
-                    task.dueDate > Date() &&
-                    self.shouldScheduleNotification(for: task)
-                }
-                
-                NotificationManager.shared.scheduleAllTaskNotifications(tasks: futureTasksForNotification)
-                
-                // Update todo list tasks
-                self.updateTodoListTasks()
-            }
-    }
-    
-    // Update todo list tasks based on the main tasks array
-    private func updateTodoListTasks() {
-        // Get all tasks that have been added to the todo list
-        todoListTasks = tasks.filter { $0.addedToTodoList }
+    init() {
+        // Initialize with any necessary setup, e.g., fetching initial data
     }
     
     func addTask(_ task: TaskItem) {
         do {
-            _ = try db.collection("tasks").addDocument(from: task)
-            
-            // Only schedule notification for future tasks
-            if !task.isComplete && task.dueDate > Date() {
-                NotificationManager.shared.scheduleTaskNotification(task: task, remindBeforeMinutes: 30)
+            let _ = try db.collection("tasks").addDocument(from: task) { error in
+                if let error = error {
+                    print("Error adding task: \(error.localizedDescription)")
+                } else {
+                    print("Task added successfully: \(task.title)")
+                    self.fetchTasks(for: task.userId)
+                }
             }
         } catch {
-            print("Error adding task: \(error)")
+            print("Error encoding task: \(error.localizedDescription)")
         }
     }
     
-    func deleteTask(_ task: TaskItem) {
-        if let taskId = task.id {
-            db.collection("tasks").document(taskId).delete { error in
+    // Fixed fetchTasks with better error handling
+    func fetchTasks(for userId: String) {
+        print("Starting to fetch tasks for user: \(userId)")
+        
+        db.collection("tasks")
+            .whereField("userId", isEqualTo: userId)
+            .addSnapshotListener { [weak self] (snapshot, error) in
+                guard let self = self else { return }
+                
                 if let error = error {
-                    print("Error deleting task: \(error)")
+                    print("Error fetching tasks: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    print("No documents found")
+                    return
+                }
+                
+                print("Processing \(documents.count) documents")
+                
+                // Process documents safely with better error handling
+                var loadedTasks: [TaskItem] = []
+                
+                for document in documents {
+                    do {
+                        // First try manually creating the task
+                        if let task = TaskItem(document: document) {
+                            loadedTasks.append(task)
+                            print("Successfully created task manually: \(task.title)")
+                        } else if let task = try? document.data(as: TaskItem.self) {
+                            // Fallback to automatic decoding
+                            loadedTasks.append(task)
+                            print("Successfully decoded task: \(task.title)")
+                        } else {
+                            print("⚠️ Failed to create task from document: \(document.documentID)")
+                            print("Document data: \(document.data())")
+                        }
+                    } catch {
+                        print("❌ Error processing document \(document.documentID): \(error.localizedDescription)")
+                    }
+                }
+                
+                // Update on main thread
+                DispatchQueue.main.async {
+                    self.tasks = loadedTasks
+                    self.todoListTasks = self.tasks.filter { $0.addedToTodoList }
+                    print("Fetched \(self.tasks.count) tasks for user \(userId)")
                 }
             }
-            NotificationManager.shared.cancelNotification(for: task)
+    }
+    
+    func saveICSLink(_ link: String, for userId: String, completion: @escaping (Bool) -> Void = { _ in }) {
+        print("Saving ICS link: \(link)")
+        db.collection("users").document(userId).setData(["icsLink": link], merge: true) { [weak self] error in
+            guard let self = self else {
+                print("Self reference lost during ICS link save")
+                completion(false)
+                return
+            }
+            if let error = error {
+                print("Error saving ICS link: \(error.localizedDescription)")
+                completion(false)
+            } else {
+                print("Successfully saved ICS link")
+                self.icsLink = link
+                self.syncICS(userId: userId, completion: completion)
+            }
+        }
+    }
+    
+    // Add method to remove ICS link
+    func removeICSLink(for userId: String, completion: @escaping (Bool) -> Void = { _ in }) {
+        print("Removing ICS link for user: \(userId)")
+        
+        // Use FieldValue.delete() to remove the field from the document
+        db.collection("users").document(userId).updateData([
+            "icsLink": FieldValue.delete()
+        ]) { error in
+            if let error = error {
+                print("Error removing ICS link: \(error.localizedDescription)")
+                completion(false)
+            } else {
+                print("Successfully removed ICS link")
+                self.icsLink = nil
+                completion(true)
+            }
         }
     }
     
     func toggleTaskCompletion(_ task: TaskItem) {
-        guard let taskId = task.id else { return }
+        guard let taskId = task.id else {
+            print("Task ID is nil")
+            return
+        }
         
-        // Create a mutable copy of the task and toggle completion
+        // Create an updated task with toggled completion status
         var updatedTask = task
         updatedTask.isComplete.toggle()
         
-        // Update in Firestore
-        db.collection("tasks").document(taskId).updateData([
-            "isComplete": updatedTask.isComplete
-        ]) { [weak self] error in
-            guard let self = self else { return }
-            
-            if let error = error {
-                print("Error toggling task completion: \(error)")
-                return
-            }
-            
-            // Update local tasks array
-            if let index = self.tasks.firstIndex(where: { $0.id == taskId }) {
-                self.tasks[index] = updatedTask
-            }
-            
-            // Also update in todoListTasks if present
-            if let index = self.todoListTasks.firstIndex(where: { $0.id == taskId }) {
-                self.todoListTasks[index] = updatedTask
-            }
-            
-            // Manage notifications
-            if updatedTask.isComplete {
-                NotificationManager.shared.cancelNotification(for: task)
-            } else {
-                // Only schedule for future, incomplete tasks
-                if updatedTask.dueDate > Date() {
-                    NotificationManager.shared.scheduleTaskNotification(task: updatedTask, remindBeforeMinutes: 30)
-                }
-            }
-        }
-    }
-    
-    func markTaskComplete(_ task: TaskItem) {
-        if let taskId = task.id {
-            db.collection("tasks").document(taskId).updateData(["isComplete": true]) { error in
+        // Update the task in Firestore
+        do {
+            try db.collection("tasks").document(taskId).setData(from: updatedTask) { error in
                 if let error = error {
-                    print("Error marking task complete: \(error)")
+                    print("Error updating task: \(error.localizedDescription)")
+                } else {
+                    print("Task updated successfully: \(updatedTask.title)")
+                    // Update the local tasks array
+                    if let index = self.tasks.firstIndex(where: { $0.id == taskId }) {
+                        self.tasks[index] = updatedTask
+                    }
+                    // Refresh the todoListTasks array
+                    self.todoListTasks = self.tasks.filter { $0.addedToTodoList }
                 }
             }
-            NotificationManager.shared.cancelNotification(for: task)
+        } catch {
+            print("Error encoding task: \(error.localizedDescription)")
         }
     }
     
     // Add task to todo list
     func addTaskToTodoList(_ task: TaskItem) {
-        guard let taskId = task.id else { return }
+        guard let taskId = task.id else {
+            print("Task ID is nil")
+            return
+        }
         
-        // Create a mutable copy of the task and mark as added to todo list
+        // Skip if already in todo list
+        if task.addedToTodoList {
+            print("Task is already in todo list: \(task.title)")
+            return
+        }
+        
+        // Create an updated task with addedToTodoList set to true
         var updatedTask = task
         updatedTask.addedToTodoList = true
         
-        // Update in Firestore
-        db.collection("tasks").document(taskId).updateData([
-            "addedToTodoList": true
-        ]) { [weak self] error in
-            guard let self = self else { return }
-            
-            if let error = error {
-                print("Error adding task to todo list: \(error)")
-                return
+        // Update the task in Firestore
+        do {
+            try db.collection("tasks").document(taskId).setData(from: updatedTask) { error in
+                if let error = error {
+                    print("Error adding task to todo list: \(error.localizedDescription)")
+                } else {
+                    print("Task added to todo list successfully: \(updatedTask.title)")
+                    // Update the local tasks array
+                    if let index = self.tasks.firstIndex(where: { $0.id == taskId }) {
+                        self.tasks[index] = updatedTask
+                    }
+                    // Refresh the todoListTasks array
+                    self.todoListTasks = self.tasks.filter { $0.addedToTodoList }
+                }
             }
-            
-            // Update local tasks array
-            if let index = self.tasks.firstIndex(where: { $0.id == taskId }) {
-                self.tasks[index] = updatedTask
-            }
-            
-            // Update todoListTasks array
-            self.updateTodoListTasks()
-            
-            // Show notification to user
-            NotificationManager.shared.schedulePreviewNotification(
-                title: "Task Added to Todo List",
-                body: "\(task.title) has been added to your todo list."
-            )
+        } catch {
+            print("Error encoding task: \(error.localizedDescription)")
         }
     }
     
     // Remove task from todo list
     func removeTaskFromTodoList(_ task: TaskItem) {
-        guard let taskId = task.id else { return }
+        guard let taskId = task.id else {
+            print("Task ID is nil")
+            return
+        }
         
-        // Create a mutable copy of the task and mark as not added to todo list
+        // Create an updated task with addedToTodoList set to false
         var updatedTask = task
         updatedTask.addedToTodoList = false
         
-        // Update in Firestore
-        db.collection("tasks").document(taskId).updateData([
-            "addedToTodoList": false
-        ]) { [weak self] error in
-            guard let self = self else { return }
-            
-            if let error = error {
-                print("Error removing task from todo list: \(error)")
-                return
+        // Update the task in Firestore
+        do {
+            try db.collection("tasks").document(taskId).setData(from: updatedTask) { error in
+                if let error = error {
+                    print("Error removing task from todo list: \(error.localizedDescription)")
+                } else {
+                    print("Task removed from todo list successfully: \(updatedTask.title)")
+                    // Update the local tasks array
+                    if let index = self.tasks.firstIndex(where: { $0.id == taskId }) {
+                        self.tasks[index] = updatedTask
+                    }
+                    // Refresh the todoListTasks array
+                    self.todoListTasks = self.tasks.filter { $0.addedToTodoList }
+                }
             }
-            
-            // Update local tasks array
-            if let index = self.tasks.firstIndex(where: { $0.id == taskId }) {
-                self.tasks[index] = updatedTask
-            }
-            
-            // Update todoListTasks array
-            self.updateTodoListTasks()
+        } catch {
+            print("Error encoding task: \(error.localizedDescription)")
         }
     }
     
-    // Helper method to determine if a notification should be scheduled
-    private func shouldScheduleNotification(for task: TaskItem, remindBeforeMinutes: Int = 30) -> Bool {
-        // Prevent scheduling notifications for very old tasks
-        let minimumValidDate = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-        let futureDate = Calendar.current.date(byAdding: .minute, value: -remindBeforeMinutes, to: task.dueDate) ?? task.dueDate
+    // Delete a task completely
+    func deleteTask(_ task: TaskItem) {
+        guard let taskId = task.id else {
+            print("Task ID is nil")
+            return
+        }
         
-        return !task.isComplete &&
-               task.dueDate > Date() &&
-               futureDate > minimumValidDate
-    }
-    
-    func saveICSLink(_ link: String, for userId: String) {
-        db.collection("users").document(userId).setData(["icsLink": link], merge: true) { error in
-            if let error = error { print("Error saving ICS link: \(error)") }
-            else {
-                self.icsLink = link
-                self.syncICS(userId: userId)
-                NotificationManager.shared.schedulePreviewNotification(
-                    title: "ICS Synced",
-                    body: "Tasks from your calendar have been imported."
-                )
-            }
-        }
-    }
-    
-    func fetchICSLinkAndSync(userId: String) {
-        db.collection("users").document(userId).getDocument { document, error in
+        db.collection("tasks").document(taskId).delete { error in
             if let error = error {
-                print("Error fetching ICS link: \(error)")
-                return
-            }
-            if let document = document, document.exists {
-                self.icsLink = document.data()?["icsLink"] as? String
-                if self.icsLink != nil { self.syncICS(userId: userId) }
+                print("Error deleting task: \(error.localizedDescription)")
+            } else {
+                print("Task deleted successfully: \(task.title)")
+                // Remove from local arrays
+                self.tasks.removeAll { $0.id == taskId }
+                self.todoListTasks.removeAll { $0.id == taskId }
             }
         }
     }
     
-    func syncICS(userId: String) {
-        guard let link = icsLink else { return }
-        let parser = ICSParser()
+    func syncICS(userId: String, completion: @escaping (Bool) -> Void = { _ in }) {
+        guard let link = icsLink else {
+            print("No ICS link available, cannot sync")
+            completion(false)
+            return
+        }
+        
+        print("Starting ICS sync with link: \(link)")
         
         db.collection("tasks")
             .whereField("userId", isEqualTo: userId)
             .getDocuments { [weak self] (snapshot, error) in
-                guard let self = self else { return }
-                if let error = error {
-                    print("Error fetching tasks for deduplication: \(error)")
+                guard let self = self else {
+                    completion(false)
                     return
                 }
-                let existingTasks = snapshot?.documents.compactMap { try? $0.data(as: TaskItem.self) } ?? []
+                if let error = error {
+                    print("Error fetching tasks for deduplication: \(error.localizedDescription)")
+                    completion(false)
+                    return
+                }
                 
-                parser.fetchAndParseICS(from: link) { events in
-                    let existingTaskKeys = Set(existingTasks.map { "\($0.title)_\($0.dueDate.timeIntervalSince1970)" })
-                    
-                    for event in events.filter({ $0.startDate > Date() }) {
-                        let taskKey = "\(event.name)_\(event.startDate.timeIntervalSince1970)"
-                        
-                        if !existingTaskKeys.contains(taskKey) {
-                            // Try to extract course information from event
-                            var courseName: String? = nil
-                            
-                            // Check if event description contains course information
-                            if !event.description.isEmpty {
-                                // Look for common course identifiers in description
-                                if let courseMatch = event.description.range(of: "Course: ([^\\n]+)", options: .regularExpression) {
-                                    courseName = String(event.description[courseMatch])
-                                        .replacingOccurrences(of: "Course: ", with: "")
-                                }
-                            }
-                            
-                            // If no course in description, try to extract from event name
-                            if courseName == nil {
-                                // Common patterns: "MATH101: Assignment" or "[MATH101] Assignment"
-                                if let courseMatch = event.name.range(of: "([A-Z]+\\d+)[ :-]", options: .regularExpression) {
-                                    courseName = String(event.name[courseMatch])
-                                        .trimmingCharacters(in: CharacterSet(charactersIn: " :-"))
-                                }
-                            }
-                            
-                            let task = TaskItem(
-                                id: nil,
-                                userId: userId,
-                                title: event.name,
-                                description: event.description,
-                                dueDate: event.startDate,
-                                isComplete: false,
-                                course: courseName
-                            )
-                            self.addTask(task) // This will also schedule the notification
+                // Safely fetch existing tasks
+                var existingTasks: [TaskItem] = []
+                if let documents = snapshot?.documents {
+                    for document in documents {
+                        if let task = TaskItem(document: document) {
+                            existingTasks.append(task)
+                        } else if let task = try? document.data(as: TaskItem.self) {
+                            existingTasks.append(task)
                         }
                     }
+                }
+                
+                print("Found \(existingTasks.count) existing tasks for deduplication")
+                
+                self.parser.fetchAndParseICS(from: link) { eventWrappers, error in
+                    if let error = error {
+                        print("ICS fetch error: \(error.localizedDescription)")
+                        completion(false)
+                        return
+                    }
+                    guard let eventWrappers = eventWrappers else {
+                        print("No events parsed from ICS")
+                        completion(false)
+                        return
+                    }
+                    print("Parsed \(eventWrappers.count) events from ICS")
+                    let existingTaskKeys = Set(existingTasks.map { "\($0.title)_\($0.dueDate.timeIntervalSince1970)" })
+                    var tasksAdded = 0
+                    
+                    for wrapper in eventWrappers {
+                        let task = wrapper.task
+                        let taskKey = "\(task.title)_\(task.dueDate.timeIntervalSince1970)"
+                        if !existingTaskKeys.contains(taskKey) && task.dueDate > Date() {
+                            print("Adding new task from ICS: \(task.title) due \(task.dueDate)")
+                            var newTask = task
+                            newTask.userId = userId
+                            self.addTask(newTask)
+                            tasksAdded += 1
+                        }
+                    }
+                    
+//                    print("ICS sync completed, added \(tasksAdded) tasks")
+//                    NotificationManager.shared.schedulePreviewNotification(
+//                        title: "ICS Synced",
+//                        body: "Tasks from your calendar have been imported."
+//                    )
+                    completion(true)
                 }
             }
     }
     
-    func removeICSLink(for userId: String) {
-        db.collection("users").document(userId).updateData(["icsLink": FieldValue.delete()]) { error in
-            if let error = error { print("Error removing ICS link: \(error)") }
-            else { self.icsLink = nil }
+    // Add method to fetch ICS link and sync
+    func fetchICSLinkAndSync(userId: String) {
+        print("Fetching ICS link for user: \(userId)")
+        db.collection("users").document(userId).getDocument { [weak self] (document, error) in
+            guard let self = self else { return }
+            if let error = error {
+                print("Error fetching ICS link: \(error.localizedDescription)")
+                return
+            }
+            
+            if let document = document, document.exists, let icsLink = document.data()?["icsLink"] as? String {
+                print("Retrieved ICS link: \(icsLink)")
+                self.icsLink = icsLink
+                self.syncICS(userId: userId)
+            } else {
+                print("No ICS link found for user")
+            }
+        }
+    }
+    
+    // Add method to clean up old tasks
+    func manualCleanup(userId: String) {
+        let threeDaysAgo = Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date()
+        
+        // Tasks to clean up:
+        // 1. Completed tasks older than 3 days
+        // 2. Overdue tasks older than 3 days
+        let tasksToClean = tasks.filter { task in
+            (task.isComplete && task.dueDate < threeDaysAgo) ||
+            (!task.isComplete && task.dueDate < threeDaysAgo)
+        }
+        
+        print("Found \(tasksToClean.count) tasks to clean up")
+        
+        for task in tasksToClean {
+            deleteTask(task)
         }
     }
 }

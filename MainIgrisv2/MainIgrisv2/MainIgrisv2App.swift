@@ -1,11 +1,11 @@
 import SwiftUI
 import FirebaseCore
+import FirebaseAuth
 
 @main
 struct MainIgrisv2App: App {
     @StateObject var sessionManager = SessionManager()
     @StateObject var taskVM = TaskViewModel()
-    @StateObject var eventVM = EventViewModel()
     @State private var isLoading = true
     
     init() {
@@ -21,21 +21,44 @@ struct MainIgrisv2App: App {
                     ContentView()
                         .environmentObject(sessionManager)
                         .environmentObject(taskVM)
-                        .environmentObject(eventVM)
                 }
             }
             .onAppear {
                 // Efficiently check auth state and transition
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { // Minimum delay for UX
-                    // Rely on SessionManager's auth listener to set isAuthenticated
-                    if sessionManager.isAuthenticated {
-                        // Preload data if authenticated
-                        if let userId = sessionManager.currentUserId {
-                            taskVM.fetchTasks(for: userId)
-                            eventVM.fetchEvents(for: userId)
+                    // Check if user is already signed in
+                    if let user = Auth.auth().currentUser {
+                        // Check if email is verified
+                        user.reload { error in
+                            if let error = error {
+                                print("Error reloading user: \(error.localizedDescription)")
+                                isLoading = false
+                            } else {
+                                if user.isEmailVerified {
+                                    // Email is verified, user is authenticated
+                                    sessionManager.isEmailVerified = true
+                                    sessionManager.isAuthenticated = true
+                                    sessionManager.currentUserId = user.uid
+                                    sessionManager.currentUserEmail = user.email
+                                    sessionManager.currentUserName = user.displayName
+                                    
+                                    // Preload data if authenticated
+                                    taskVM.fetchTasks(for: user.uid)
+                                } else {
+                                    // Email is not verified, user is not fully authenticated
+                                    sessionManager.isEmailVerified = false
+                                    sessionManager.isAuthenticated = false
+                                    sessionManager.currentUserId = user.uid
+                                    sessionManager.currentUserEmail = user.email
+                                    sessionManager.currentUserName = user.displayName
+                                }
+                                isLoading = false
+                            }
                         }
+                    } else {
+                        // No user is signed in
+                        isLoading = false
                     }
-                    isLoading = false // Transition to ContentView
                 }
             }
         }

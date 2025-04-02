@@ -1,32 +1,27 @@
 import SwiftUI
+import FirebaseAuth
 
 struct ContentView: View {
     @EnvironmentObject var sessionManager: SessionManager
     @EnvironmentObject var taskVM: TaskViewModel
-    @EnvironmentObject var eventVM: EventViewModel
     @Environment(\.colorScheme) var colorScheme
+    
+    // Reference to ThemeManager
+    private let theme = ThemeManager.shared
     
     var body: some View {
         Group {
             if sessionManager.isAuthenticated {
                 // Main app content when authenticated
                 ZStack {
-                    // Global background color/style that will show during transitions
-                    LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color.blue.opacity(0.7),
-                            Color.purple.opacity(0.7)
-                        ]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    .ignoresSafeArea()
+                    // Use ThemeManager's background gradient
+                    theme.backgroundGradient
+                        .ignoresSafeArea()
                     
                     TabView {
                         HomeView()
                             .environmentObject(sessionManager)
                             .environmentObject(taskVM)
-                            .environmentObject(eventVM)
                             .tabItem {
                                 Label("Home", systemImage: "house.fill")
                             }
@@ -51,8 +46,12 @@ struct ContentView: View {
                                 Label("Profile", systemImage: "person.fill")
                             }
                     }
-                    .accentColor(.white) // Changed from blue to white for better visibility on dark background
+                    .accentColor(theme.accentColor) // Use ThemeManager's accent color
                 }
+            } else if Auth.auth().currentUser != nil && !sessionManager.isEmailVerified {
+                // User is logged in but email is not verified
+                EmailVerificationView()
+                    .environmentObject(sessionManager)
             } else {
                 // Authentication view
                 AuthContainerView()
@@ -65,6 +64,19 @@ struct ContentView: View {
             // Ensure we fetch the todo list tasks when authenticated
             if sessionManager.isAuthenticated, let userId = sessionManager.currentUserId {
                 taskVM.fetchTasks(for: userId)
+            }
+            
+            // Check if the current user's email is verified
+            if let user = Auth.auth().currentUser {
+                user.reload { error in
+                    if error == nil {
+                        // Update the email verification status
+                        sessionManager.isEmailVerified = user.isEmailVerified
+                        if user.isEmailVerified && !sessionManager.isAuthenticated {
+                            sessionManager.isAuthenticated = true
+                        }
+                    }
+                }
             }
         }
         .onChange(of: sessionManager.isAuthenticated) { _, newValue in
@@ -83,7 +95,6 @@ struct ContentView_Previews: PreviewProvider {
         ContentView()
             .environmentObject(SessionManager())
             .environmentObject(TaskViewModel())
-            .environmentObject(EventViewModel())
             .preferredColorScheme(.dark)
     }
 }

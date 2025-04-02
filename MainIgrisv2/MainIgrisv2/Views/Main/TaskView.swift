@@ -10,6 +10,11 @@ struct TasksView: View {
     @State private var showAddTask = false
     @State private var showICSFeed = false
     @State private var selectedFilter: TaskFilter = .all
+    @State private var showCleanupAlert = false
+    @State private var cleanupPerformed = false
+    
+    // Reference to ThemeManager
+    private let theme = ThemeManager.shared
     
     enum TaskFilter {
         case all, active, completed
@@ -35,34 +40,46 @@ struct TasksView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Updated gradient to match TodoListView
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color.blue.opacity(0.7),
-                        Color.purple.opacity(0.7)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                // Background gradient - using ThemeManager
+                theme.backgroundGradient
+                    .ignoresSafeArea()
                 
-                VStack(spacing: 15) {
-                    // Filter Segment Control
+                VStack(spacing: 20) {
+                    // Filter Segment Control - styled with ThemeManager
                     Picker("Filter", selection: $selectedFilter) {
-                        Text("All").tag(TaskFilter.all)
-                        Text("Active").tag(TaskFilter.active)
-                        Text("Completed").tag(TaskFilter.completed)
+                        Text("All")
+                            .foregroundColor(theme.textPrimary)
+                            .font(theme.captionFont(size: 14)) // Smaller font to match image
+                            .frame(minWidth: 60) // Set a minimum width for "All"
+                            .tag(TaskFilter.all)
+                        Text("Active")
+                            .foregroundColor(theme.textPrimary)
+                            .font(theme.captionFont(size: 14))
+                            .frame(minWidth: 80) // Slightly wider for "Active"
+                            .tag(TaskFilter.active)
+                        Text("Completed")
+                            .foregroundColor(theme.textPrimary)
+                            .font(theme.captionFont(size: 14))
+                            .frame(minWidth: 100) // Wider for "Completed"
+                            .tag(TaskFilter.completed)
                     }
                     .pickerStyle(SegmentedPickerStyle())
-                    .padding(.horizontal)
-                    .padding(.top, 10)
+                    .padding(.horizontal, 12) // Adjusted padding to match image
+                    .padding(.top, 12)
+                    .padding(.bottom, 12)
+                    .tint(theme.textPrimary) // Force text color to white
+                    .accentColor(theme.accentColor) // Selected segment color
+                    .background(
+                        RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                            .fill(theme.cardBackgroundAlt)
+                    )
+                    .preferredColorScheme(.dark) // Ensure dark mode rendering
                     
-                    // Tasks List without upcoming due dates section
+                    // Tasks List
                     if filteredTasks.isEmpty {
                         emptyStateView
                     } else {
                         List {
-                            // All tasks - removed the Upcoming Due Dates section
                             Section {
                                 ForEach(filteredTasks) { task in
                                     taskRowView(task)
@@ -83,35 +100,44 @@ struct TasksView: View {
                                             } label: {
                                                 Label("Todo", systemImage: "text.badge.plus")
                                             }
-                                            .tint(.blue)
+                                            .tint(theme.accentColor)
                                         }
                                 }
                             }
                         }
                         .listStyle(InsetGroupedListStyle())
-                        .scrollContentBackground(.hidden) // Transparent background for list
+                        .scrollContentBackground(.hidden)
                     }
                 }
                 .navigationTitle("Tasks")
+                .navigationBarBackButtonHidden(true)
                 .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button(action: { dismiss() }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.white.opacity(0.7))
-                        }
+                    ToolbarItem(placement: .principal) {
+                        Text("Tasks")
+                            .font(theme.titleFont())
+                            .foregroundColor(theme.textPrimary)
                     }
                     
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        HStack {
-                            Button(action: { showICSFeed.toggle() }) {
-                                Image(systemName: "calendar.badge.plus")
-                                    .foregroundColor(.white)
+                        Menu {
+                            Button(action: { showAddTask.toggle() }) {
+                                Label("Add Task", systemImage: "plus.circle.fill")
+                                    .foregroundColor(theme.accentColor)
                             }
                             
-                            Button(action: { showAddTask.toggle() }) {
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundColor(.white)
+                            Button(action: { showICSFeed.toggle() }) {
+                                Label("Calendar Feed", systemImage: "calendar.badge.plus")
+                                    .foregroundColor(theme.accentColor)
                             }
+                            
+                            Button(action: { showCleanupAlert = true }) {
+                                Label("Clean Up Old Tasks", systemImage: "trash.circle.fill")
+                                    .foregroundColor(theme.accentColor)
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle.fill")
+                                .font(.system(size: 22))
+                                .foregroundColor(theme.accentColor)
                         }
                     }
                 }
@@ -125,9 +151,25 @@ struct TasksView: View {
                         .environmentObject(sessionManager)
                         .environmentObject(taskVM)
                 }
+                .alert("Clean Up Old Tasks", isPresented: $showCleanupAlert) {
+                    Button("Cancel", role: .cancel) {}
+                    Button("Clean Up", role: .destructive) {
+                        if let userId = sessionManager.currentUserId {
+                            taskVM.manualCleanup(userId: userId)
+                            cleanupPerformed = true
+                        }
+                    }
+                } message: {
+                    Text("This will remove completed or overdue tasks that are older than 3 days. This action cannot be undone.")
+                }
+                .alert("Cleanup Complete", isPresented: $cleanupPerformed) {
+                    Button("OK", role: .cancel) {}
+                } message: {
+                    Text("Old tasks have been removed.")
+                }
             }
         }
-        .preferredColorScheme(.dark) // Match TodoListView dark mode
+        .preferredColorScheme(.dark)
         .onAppear {
             NotificationManager.shared.requestPermission()
             if let userId = Auth.auth().currentUser?.uid {
@@ -141,87 +183,102 @@ struct TasksView: View {
         }
     }
     
-    // Empty State View - styled to match TodoListView
+    // Empty State View with ThemeManager styling
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) {
             Image(systemName: "list.bullet.clipboard")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 100, height: 100)
-                .foregroundColor(.white.opacity(0.6))
+                .frame(width: 90, height: 90)
+                .foregroundColor(theme.secondaryAccent.opacity(0.5))
+                .modifier(theme.standardShadow(radius: 10, x: 0, y: 5))
             
             Text("No tasks yet")
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(theme.titleFont(size: 20))
+                .foregroundColor(theme.textPrimary)
             
             Text("Tap the '+' button to add a new task")
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.8))
+                .font(theme.bodyFont())
+                .foregroundColor(theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    // Task Row View - styled to match TodoListView
+    // Task Row View with ThemeManager styling
     private func taskRowView(_ task: TaskItem) -> some View {
         HStack {
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(task.title)
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(theme.bodyFont())
+                        .foregroundColor(task.isComplete ? theme.textSecondary : theme.textPrimary)
                         .strikethrough(task.isComplete)
                     
                     if let course = task.course, !course.isEmpty {
                         Text("• \(course)")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.9))
+                            .font(theme.captionFont())
+                            .foregroundColor(theme.secondaryAccent.opacity(0.9))
                     }
                 }
                 
-                Text(task.description)
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
-                    .lineLimit(1)
+                if !task.description.isEmpty {
+                    Text(task.description)
+                        .font(theme.captionFont())
+                        .foregroundColor(theme.textSecondary)
+                        .lineLimit(1)
+                }
                 
-                Text("Due: \(task.dueDate, style: .date)")
-                    .font(.caption)
-                    .foregroundColor(isDueDateClose(task.dueDate) ? .red : .white.opacity(0.7))
+                HStack {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 12))
+                        .foregroundColor(isDueDateClose(task.dueDate) ? theme.errorColor : theme.textSecondary)
+                    
+                    Text(task.dueDate, style: .date)
+                        .font(theme.captionFont(size: 12))
+                        .foregroundColor(isDueDateClose(task.dueDate) ? theme.errorColor : theme.textSecondary)
+                }
+                .padding(.top, 2)
             }
             
             Spacer()
             
-            // Completion Toggle
+            // Completion Toggle with ThemeManager styling
             Button(action: {
                 taskVM.toggleTaskCompletion(task)
             }) {
-                Image(systemName: task.isComplete ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(task.isComplete ? .green : .white.opacity(0.7))
-                    .imageScale(.large)
+                ZStack {
+                    Circle()
+                        .stroke(task.isComplete ? theme.accentColor : theme.textSecondary.opacity(0.5), lineWidth: 1.5)
+                        .frame(width: 24, height: 24)
+                    
+                    if task.isComplete {
+                        Circle()
+                            .fill(theme.accentColor)
+                            .frame(width: 16, height: 16)
+                        
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(theme.textPrimary)
+                    }
+                }
             }
         }
-        .padding()
+        .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 10) // Changed to match TodoListView
-                .fill(Color.white.opacity(0.2)) // Changed to match TodoListView
-                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+            RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                .fill(theme.cardBackgroundAlt)
+                .modifier(theme.standardShadow(radius: 5, x: 0, y: 3))
         )
         .padding(.horizontal)
-        .padding(.vertical, 5)
+        .padding(.vertical, 4)
     }
     
     // Check if due date is within the next 24 hours
     private func isDueDateClose(_ date: Date) -> Bool {
         let timeUntilDue = date.timeIntervalSince(Date())
         return timeUntilDue > 0 && timeUntilDue < 24 * 60 * 60 // Less than 24 hours
-    }
-    
-    // Delete Items Function
-    private func deleteItems(offsets: IndexSet) {
-        offsets.map { filteredTasks[$0] }.forEach { task in
-            taskVM.deleteTask(task)
-        }
     }
 }
 

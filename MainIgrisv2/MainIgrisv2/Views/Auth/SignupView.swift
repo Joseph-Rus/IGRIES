@@ -9,18 +9,17 @@ struct SignUpView: View {
     @State private var password: String = ""
     @State private var confirmPassword: String = ""
     @State private var errorMessage: String?
+    @State private var showVerificationAlert: Bool = false
+    @State private var agreedToTerms: Bool = false
+    @State private var showingTerms: Bool = false
     
-    // Background gradient - already matches TodoListView
+    // Reference to ThemeManager
+    private let theme = ThemeManager.shared
+    
+    // Background gradient - using ThemeManager
     private var backgroundGradient: some View {
-        LinearGradient(
-            gradient: Gradient(colors: [
-                Color.blue.opacity(0.7),
-                Color.purple.opacity(0.7)
-            ]),
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
+        theme.backgroundGradient
+            .ignoresSafeArea()
     }
     
     var body: some View {
@@ -32,88 +31,129 @@ struct SignUpView: View {
                     Spacer()
                     
                     Text("IGRIS")
-                        .font(.largeTitle)
+                        .font(theme.titleFont(size: 34))
                         .fontWeight(.bold)
-                        .foregroundColor(.white)
+                        .foregroundColor(theme.textPrimary)
                     
                     Image("MainKnight")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 100, height: 100)
-                        .cornerRadius(10) // Updated to match LoginView rounded corners
-                        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2) // Updated to match LoginView shadow
+                        .cornerRadius(theme.cornerRadiusMedium)
+                        .modifier(theme.standardShadow(radius: 3, x: 0, y: 2))
                     
                     VStack(spacing: 15) {
                         TextField("Email", text: $email)
                             .textContentType(.emailAddress)
                             .keyboardType(.emailAddress)
                             .padding(10)
-                            .background(Color.white.opacity(0.2))
-                            .cornerRadius(10) // Updated to match LoginView
+                            .background(theme.cardBackgroundAlt)
+                            .cornerRadius(theme.cornerRadiusMedium)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                                    .stroke(theme.textSecondary.opacity(0.5), lineWidth: 1)
                             )
-                            .foregroundColor(.white)
+                            .foregroundColor(theme.textPrimary)
                             .frame(width: 250)
                         
                         SecureField("Password", text: $password)
                             .textContentType(.password)
                             .padding(10)
-                            .background(Color.white.opacity(0.2))
-                            .cornerRadius(10) // Updated to match LoginView
+                            .background(theme.cardBackgroundAlt)
+                            .cornerRadius(theme.cornerRadiusMedium)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                                    .stroke(theme.textSecondary.opacity(0.5), lineWidth: 1)
                             )
-                            .foregroundColor(.white)
+                            .foregroundColor(theme.textPrimary)
                             .frame(width: 250)
                         
                         SecureField("Confirm Password", text: $confirmPassword)
                             .textContentType(.password)
                             .padding(10)
-                            .background(Color.white.opacity(0.2))
-                            .cornerRadius(10) // Updated to match LoginView
+                            .background(theme.cardBackgroundAlt)
+                            .cornerRadius(theme.cornerRadiusMedium)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                                    .stroke(theme.textSecondary.opacity(0.5), lineWidth: 1)
                             )
-                            .foregroundColor(.white)
+                            .foregroundColor(theme.textPrimary)
                             .frame(width: 250)
+                        
+                        // Terms of Service agreement
+                        HStack(alignment: .center) {
+                            Button(action: {
+                                agreedToTerms.toggle()
+                            }) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .stroke(theme.textSecondary.opacity(0.5), lineWidth: 1.5)
+                                        .frame(width: 20, height: 20)
+                                        .background(
+                                            agreedToTerms ?
+                                            RoundedRectangle(cornerRadius: 3).fill(theme.accentColor) :
+                                            RoundedRectangle(cornerRadius: 3).fill(Color.clear)
+                                        )
+                                    
+                                    if agreedToTerms {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundColor(theme.textPrimary)
+                                    }
+                                }
+                            }
+                            
+                            Text("I agree to the ")
+                                .foregroundColor(theme.textSecondary)
+                                .font(theme.captionFont())
+                            
+                            Button(action: {
+                                showingTerms = true
+                            }) {
+                                Text("Terms of Service")
+                                    .foregroundColor(theme.accentColor)
+                                    .font(theme.captionFont())
+                                    .underline()
+                            }
+                        }
+                        .frame(width: 250, alignment: .leading)
+                        .padding(.top, 5)
                         
                         if let errorMessage = errorMessage {
                             Text(errorMessage)
-                                .foregroundColor(.white)
+                                .foregroundColor(theme.textPrimary)
                                 .multilineTextAlignment(.center)
                                 .frame(width: 250)
                                 .padding(8)
-                                .background(Color.red.opacity(0.3))
-                                .cornerRadius(10) // Updated to match LoginView
+                                .background(theme.errorColor.opacity(0.3))
+                                .cornerRadius(theme.cornerRadiusMedium)
                         }
                         
                         Button(action: signUp) {
                             Text("Create Account")
-                                .foregroundColor(.white)
+                                .foregroundColor(theme.textPrimary)
+                                .font(theme.bodyFont())
                                 .fontWeight(.bold)
                                 .padding(10)
                                 .frame(maxWidth: .infinity)
                                 .background(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [Color.blue, Color.purple]), // Updated to match LoginView gradient
+                                    agreedToTerms ? theme.taskButtonGradient : LinearGradient(
+                                        gradient: Gradient(colors: [theme.textSecondary.opacity(0.3), theme.textSecondary.opacity(0.3)]),
                                         startPoint: .leading,
                                         endPoint: .trailing
                                     )
                                 )
-                                .cornerRadius(10) // Updated to match LoginView
+                                .cornerRadius(theme.cornerRadiusMedium)
                         }
                         .frame(width: 250)
-                        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2) // Updated to match LoginView
+                        .modifier(theme.buttonShadow())
+                        .disabled(!agreedToTerms)
                         
                         HStack {
                             Button("Already have an account?") {
                                 isLogin = true
                             }
-                            .foregroundColor(.white)
+                            .foregroundColor(theme.accentColor)
                         }
                         .padding(.horizontal, 80)
                     }
@@ -125,6 +165,17 @@ struct SignUpView: View {
             .navigationTitle("Sign Up")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .alert("Email Verification Required", isPresented: $showVerificationAlert) {
+                Button("OK") {
+                    // After dismissing the alert, redirect to login
+                    isLogin = true
+                }
+            } message: {
+                Text("A verification email has been sent to \(email). Please verify your email address before logging in.")
+            }
+            .sheet(isPresented: $showingTerms) {
+                TermsOfServiceView()
+            }
         }
         .preferredColorScheme(.dark)
     }
@@ -142,31 +193,35 @@ struct SignUpView: View {
             return
         }
         
+        // Ensure terms are accepted
+        guard agreedToTerms else {
+            errorMessage = "You must agree to the Terms of Service."
+            return
+        }
+        
         // Proceed with Firebase signup
         Auth.auth().createUser(withEmail: email, password: password) { authResult, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self.errorMessage = error.localizedDescription
-                } else {
-                    sessionManager.isAuthenticated = true
-                    self.resetToMain()
+                } else if let user = authResult?.user {
+                    // Send email verification
+                    sendEmailVerification(user: user)
                 }
             }
         }
     }
     
-    private func resetToMain() {
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first {
-            let mainView = ContentView()
-                .environmentObject(sessionManager)
-                .environmentObject(TaskViewModel())
-                .environmentObject(EventViewModel())
-            window.rootViewController = UIHostingController(rootView: mainView)
-            window.makeKeyAndVisible()
-            print("Root view reset to ContentView after signup")
-        } else {
-            print("Failed to reset root view to ContentView")
+    private func sendEmailVerification(user: User) {
+        user.sendEmailVerification { error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self.errorMessage = "Error sending verification email: \(error.localizedDescription)"
+                } else {
+                    // Show verification alert
+                    self.showVerificationAlert = true
+                }
+            }
         }
     }
 }

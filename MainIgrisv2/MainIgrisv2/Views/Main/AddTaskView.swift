@@ -4,64 +4,78 @@ struct AddTaskView: View {
     @EnvironmentObject var sessionManager: SessionManager
     @EnvironmentObject var taskVM: TaskViewModel
     @Environment(\.dismiss) var dismiss
-    @Environment(\.colorScheme) var colorScheme
+    
+    // Theme reference
+    private let theme = ThemeManager.shared
     
     @State private var title = ""
     @State private var description = ""
-    @State private var course = "" // New course state
+    @State private var course = ""
     @State private var dueDate = Date()
     @State private var showValidationError = false
     
-    // Background view - updated to match TodoListView gradient
+    // Background view - using ThemeManager gradient
     private var backgroundView: some View {
-        LinearGradient(
-            gradient: Gradient(colors: [
-                Color.blue.opacity(0.7),
-                Color.purple.opacity(0.7)
-            ]),
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
+        ZStack {
+            theme.backgroundGradient
+                .ignoresSafeArea()
+            
+            // Add subtle pattern overlay for more depth
+            Color.white
+                .opacity(0.03)
+                .ignoresSafeArea()
+        }
     }
     
-    // Title field - styled to match TodoListView
+    // Title field - updated with ThemeManager styling
     private var titleField: some View {
         inputSection(title: "Task Title") {
             TextField("Enter task title", text: $title)
                 .padding()
-                .background(Color.white.opacity(0.2))
-                .foregroundColor(.white)
-                .cornerRadius(10)
-                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+                .background(theme.cardBackgroundAlt)
+                .foregroundColor(theme.textPrimary)
+                .cornerRadius(theme.cornerRadiusMedium)
+                .overlay(
+                    RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                        .stroke(theme.accentColor.opacity(0.3), lineWidth: 1)
+                )
+                .modifier(theme.standardShadow())
         }
     }
     
-    // Course field - new field for course info
+    // Course field - updated with ThemeManager styling
     private var courseField: some View {
         inputSection(title: "Course") {
             TextField("Enter course name (optional)", text: $course)
                 .padding()
-                .background(Color.white.opacity(0.2))
-                .foregroundColor(.white)
-                .cornerRadius(10)
-                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+                .background(theme.cardBackgroundAlt)
+                .foregroundColor(theme.textPrimary)
+                .cornerRadius(theme.cornerRadiusMedium)
+                .overlay(
+                    RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                        .stroke(theme.secondaryAccent.opacity(0.3), lineWidth: 1)
+                )
+                .modifier(theme.standardShadow())
         }
     }
     
-    // Description field - styled to match TodoListView
+    // Description field - updated with ThemeManager styling
     private var descriptionField: some View {
         inputSection(title: "Description") {
             TextField("Enter task description", text: $description)
                 .padding()
-                .background(Color.white.opacity(0.2))
-                .foregroundColor(.white)
-                .cornerRadius(10)
-                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+                .background(theme.cardBackgroundAlt)
+                .foregroundColor(theme.textPrimary)
+                .cornerRadius(theme.cornerRadiusMedium)
+                .overlay(
+                    RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                        .stroke(theme.secondaryAccent.opacity(0.3), lineWidth: 1)
+                )
+                .modifier(theme.standardShadow())
         }
     }
     
-    // Due date picker - styled to match TodoListView
+    // Due date picker - updated with ThemeManager styling
     private var dueDatePicker: some View {
         inputSection(title: "Due Date") {
             DatePicker(
@@ -70,54 +84,58 @@ struct AddTaskView: View {
                 displayedComponents: [.date, .hourAndMinute]
             )
             .padding()
-            .background(Color.white.opacity(0.2))
-            .foregroundColor(.white)
-            .tint(.white)
-            .cornerRadius(10)
-            .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+            .background(theme.cardBackgroundAlt)
+            .foregroundColor(theme.textPrimary)
+            .tint(theme.accentColor)
+            .cornerRadius(theme.cornerRadiusMedium)
+            .overlay(
+                RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                    .stroke(theme.accentColor.opacity(0.3), lineWidth: 1)
+            )
+            .modifier(theme.standardShadow(radius: 8))
         }
     }
     
-    // Validation error message
+    // Validation error message - updated with ThemeManager styling
     private var validationErrorMessage: some View {
         Group {
             if showValidationError {
                 Text("Please enter a task title")
-                    .foregroundColor(.red)
-                    .font(.caption)
+                    .foregroundColor(theme.errorColor)
+                    .font(theme.captionFont())
                     .padding(.horizontal, 4)
             }
         }
     }
     
-    // Create task button - styled to match TodoListView
+    // Create task button - updated with ThemeManager styling
     private var createTaskButton: some View {
         Button(action: addNewTask) {
             Text("Create Task")
+                .font(theme.bodyFont(size: 18))
                 .fontWeight(.semibold)
-                .foregroundColor(.white)
+                .foregroundColor(theme.textPrimary)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [.blue, .purple]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
+                .background(theme.taskButtonGradient)
+                .cornerRadius(theme.cornerRadiusLarge)
+                .modifier(theme.buttonShadow())
+                .overlay(
+                    RoundedRectangle(cornerRadius: theme.cornerRadiusLarge)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
                 )
-                .cornerRadius(12)
-                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
         }
+        .padding(.top, 20)
         .padding(.bottom, 30)
     }
     
-    // Toolbar content - updated text color to white
+    // Toolbar content - updated with ThemeManager styling
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigationBarLeading) {
             Button("Cancel") {
                 dismiss()
             }
-            .foregroundColor(.white)
+            .foregroundColor(theme.textPrimary)
         }
     }
     
@@ -125,7 +143,7 @@ struct AddTaskView: View {
     private var formContent: some View {
         VStack(spacing: 20) {
             titleField
-            courseField // Added course field
+            courseField
             descriptionField
             dueDatePicker
             validationErrorMessage
@@ -138,17 +156,18 @@ struct AddTaskView: View {
         .toolbar {
             toolbarContent
         }
+        .toolbarColorScheme(.dark, for: .navigationBar)
     }
     
-    // Input Section Wrapper - updated text colors to white
+    // Input Section Wrapper - updated with ThemeManager styling
     private func inputSection<Content: View>(
         title: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(theme.titleFont(size: 16))
+                .foregroundColor(theme.textPrimary)
                 .padding(.horizontal, 4)
             
             content()
@@ -156,7 +175,7 @@ struct AddTaskView: View {
         .padding(.bottom, 4)
     }
     
-    // Main body - added preferredColorScheme(.dark)
+    // Main body
     var body: some View {
         NavigationStack {
             ZStack {
@@ -186,7 +205,7 @@ struct AddTaskView: View {
             description: description,
             dueDate: dueDate,
             isComplete: false,
-            course: course.isEmpty ? nil : course // Include course information
+            course: course.isEmpty ? nil : course
         )
         
         taskVM.addTask(newTask)

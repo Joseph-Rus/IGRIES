@@ -6,143 +6,210 @@ struct TodoListView: View {
     @EnvironmentObject var taskVM: TaskViewModel
     @Environment(\.colorScheme) var colorScheme
     
-    private var todoTasks: [TaskItem] {
-        // Sort tasks by due date
-        return taskVM.todoListTasks.sorted { task1, task2 in
-            return task1.dueDate < task2.dueDate
-        }
-    }
+    private let theme = ThemeManager.shared
+    
+    // Simple state variables to control sorting and filtering
+    @State private var selectedSortIndex = 0 // 0: dueDate, 1: priority, 2: title
+    @State private var showCompleted: Bool = true
     
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background gradient
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color.blue.opacity(0.7),
-                        Color.purple.opacity(0.7)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                theme.backgroundGradient
+                    .ignoresSafeArea()
                 
                 VStack {
-                    if todoTasks.isEmpty {
+                    if sortAndFilterTasks().isEmpty {
                         emptyStateView
                     } else {
-                        List {
-                            ForEach(todoTasks) { task in
-                                todoTaskRowView(task)
-                                    .listRowBackground(Color.clear)
-                                    .listRowSeparator(.hidden)
-                                    .swipeActions(edge: .trailing) {
-                                        Button(role: .destructive) {
-                                            taskVM.removeTaskFromTodoList(task)
-                                        } label: {
-                                            Label("Remove", systemImage: "trash")
-                                        }
-                                    }
-                            }
-                        }
-                        .listStyle(PlainListStyle())
+                        taskListView
                     }
                 }
                 .navigationTitle("Todo List")
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Text("Todo List")
+                            .font(theme.titleFont())
+                            .foregroundColor(theme.textPrimary)
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Menu {
+                            // Sort options
+                            Picker("Sort By", selection: $selectedSortIndex) {
+                                Text("Due Date").tag(0)
+                                Text("Priority").tag(1)
+                                Text("Title").tag(2)
+                            }
+                            // Show/hide completed tasks
+                            Toggle("Show Completed", isOn: $showCompleted)
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                    }
+                }
             }
         }
         .preferredColorScheme(.dark)
         .onAppear {
             if let userId = sessionManager.currentUserId {
-                // Ensure todo list tasks are up to date
                 taskVM.fetchTasks(for: userId)
             }
         }
     }
     
-    // Empty State View
+    // Extract the task list view for better readability
+    private var taskListView: some View {
+        List {
+            ForEach(sortAndFilterTasks()) { task in
+                TodoTaskRowView(task: task, theme: theme, taskVM: taskVM)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            taskVM.removeTaskFromTodoList(task)
+                        } label: {
+                            Label("Remove", systemImage: "trash")
+                        }
+                    }
+                    .swipeActions(edge: .leading) {
+                        Button {
+                            print("Edit task: \(task.title)")
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        .tint(.blue)
+                    }
+            }
+        }
+        .listStyle(PlainListStyle())
+        .scrollContentBackground(.hidden)
+    }
+    
+    // Simplify the sorting and filtering logic into a single function
+    private func sortAndFilterTasks() -> [TaskItem] {
+        // Step 1: Filter tasks based on completion status
+        let filteredTasks = showCompleted ?
+            taskVM.todoListTasks :
+            taskVM.todoListTasks.filter { !$0.isComplete }
+        
+        // Step 2: Sort the filtered tasks based on selected option
+        switch selectedSortIndex {
+        case 0: // Due Date
+            return filteredTasks.sorted { $0.dueDate < $1.dueDate }
+        case 1: // Priority
+            return filteredTasks.sorted { $0.priority.rawValue > $1.priority.rawValue }
+        case 2: // Title
+            return filteredTasks.sorted { $0.title < $1.title }
+        default:
+            return filteredTasks
+        }
+    }
+    
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "checkmark.circle")
+        VStack(spacing: 24) {
+            Image(systemName: "checkmark.circle.fill")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 100, height: 100)
-                .foregroundColor(.white.opacity(0.6))
+                .frame(width: 90, height: 90)
+                .foregroundColor(theme.secondaryAccent.opacity(0.5))
+                .modifier(theme.standardShadow(radius: 10, x: 0, y: 5))
             
             Text("Your todo list is empty")
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(theme.titleFont(size: 20))
+                .foregroundColor(theme.textPrimary)
             
             Text("Swipe right on tasks to add them here")
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.8))
+                .font(theme.bodyFont())
+                .foregroundColor(theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+}
+
+// Separate struct for task row view
+struct TodoTaskRowView: View {
+    let task: TaskItem
+    let theme: ThemeManager
+    let taskVM: TaskViewModel
     
-    // Todo Task Row View
-    private func todoTaskRowView(_ task: TaskItem) -> some View {
+    var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(task.title)
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(theme.bodyFont())
+                        .foregroundColor(task.isComplete ? theme.textSecondary : theme.textPrimary)
                         .strikethrough(task.isComplete)
                     
                     if let course = task.course, !course.isEmpty {
                         Text("• \(course)")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.9))
+                            .font(theme.captionFont())
+                            .foregroundColor(theme.secondaryAccent.opacity(0.9))
                     }
                 }
                 
                 if !task.description.isEmpty {
                     Text(task.description)
-                        .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.7))
+                        .font(theme.captionFont())
+                        .foregroundColor(theme.textSecondary)
                         .lineLimit(1)
                 }
                 
-                Text("Due: \(task.dueDate, style: .date) at \(task.dueDate, style: .time)")
-                    .font(.caption)
-                    .foregroundColor(isDueDateClose(task.dueDate) ? .red : .white.opacity(0.7))
+                HStack(spacing: 12) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 12))
+                            .foregroundColor(isDueDateClose(task.dueDate) ? theme.errorColor : theme.textSecondary)
+                        Text(task.dueDate, style: .date)
+                            .font(theme.captionFont(size: 12))
+                            .foregroundColor(isDueDateClose(task.dueDate) ? theme.errorColor : theme.textSecondary)
+                    }
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 12))
+                            .foregroundColor(isDueDateClose(task.dueDate) ? theme.errorColor : theme.textSecondary)
+                        Text(task.dueDate, style: .time)
+                            .font(theme.captionFont(size: 12))
+                            .foregroundColor(isDueDateClose(task.dueDate) ? theme.errorColor : theme.textSecondary)
+                    }
+                }
+                .padding(.top, 2)
             }
-            
             Spacer()
-            
-            // Completion Toggle
             Button(action: {
                 taskVM.toggleTaskCompletion(task)
             }) {
-                Image(systemName: task.isComplete ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(task.isComplete ? .green : .white.opacity(0.7))
-                    .imageScale(.large)
+                ZStack {
+                    Circle()
+                        .stroke(task.isComplete ? theme.accentColor : theme.textSecondary.opacity(0.5), lineWidth: 1.5)
+                        .frame(width: 24, height: 24)
+                    if task.isComplete {
+                        Circle()
+                            .fill(theme.accentColor)
+                            .frame(width: 16, height: 16)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
             }
         }
-        .padding()
+        .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(0.2))
-                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+            RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                .fill(theme.cardBackgroundAlt)
+                .modifier(theme.standardShadow())
         )
         .padding(.horizontal)
-        .padding(.vertical, 5)
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(task.title), \(task.isComplete ? "completed" : "not completed"), due \(task.dueDate, style: .date) at \(task.dueDate, style: .time)")
     }
     
-    // Check if due date is within the next 24 hours
     private func isDueDateClose(_ date: Date) -> Bool {
         let timeUntilDue = date.timeIntervalSince(Date())
-        return timeUntilDue > 0 && timeUntilDue < 24 * 60 * 60 // Less than 24 hours
-    }
-}
-
-struct TodoListView_Previews: PreviewProvider {
-    static var previews: some View {
-        TodoListView()
-            .environmentObject(SessionManager())
-            .environmentObject(TaskViewModel())
+        return timeUntilDue > 0 && timeUntilDue < 24 * 60 * 60
     }
 }

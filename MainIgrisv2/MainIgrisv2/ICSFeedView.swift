@@ -6,170 +6,157 @@ struct ICSFeedView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
     
+    // Theme manager for consistent styling
+    private let theme = ThemeManager.shared
+    
     @State private var urlInput: String = ""
     @State private var isLoading: Bool = false
     @State private var errorMessage: String?
     
-    // Background view - updated to match TodoListView
-    private var backgroundView: some View {
-        LinearGradient(
-            gradient: Gradient(colors: [
-                Color.blue.opacity(0.7),
-                Color.purple.opacity(0.7)
-            ]),
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
-    }
-    
-    // URL Input field - styled to match TodoListView
-    private var urlInputField: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Calendar URL")
-                .font(.headline)
-                .foregroundColor(.white)
-                .padding(.horizontal, 4)
-            
-            TextField("Enter ICS URL", text: $urlInput)
-                .padding()
-                .background(Color.white.opacity(0.2))
-                .foregroundColor(.white)
-                .cornerRadius(10)
-                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
-        }
-    }
-    
-    // Loading and error messages
-    private var statusMessages: some View {
-        VStack(spacing: 8) {
-            if isLoading {
-                ProgressView("Loading...")
-                    .padding(.vertical, 8)
-                    .foregroundColor(.white)
-            }
-            
-            if let error = errorMessage {
-                Text(error)
-                    .foregroundColor(.red)
-                    .font(.subheadline)
-                    .padding(.vertical, 4)
-            }
-        }
-    }
-    
-    // Save button - styled to match TodoListView
-    private var saveButton: some View {
-        Button(action: { saveICS() }) {
-            Text("Save ICS")
-                .fontWeight(.semibold)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [.blue, .purple]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .cornerRadius(10)
-                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
-        }
-    }
-    
-    // Remove button - styled to match TodoListView
-    private var removeButton: some View {
-        Group {
-            if taskVM.icsLink != nil {
-                Button(action: { removeICS() }) {
-                    Text("Remove ICS")
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(
-                            LinearGradient(
-                                gradient: Gradient(colors: [.red, .red.opacity(0.7)]),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .cornerRadius(10)
-                        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
-                }
-            }
-        }
-    }
-    
-    // Cancel button - styled to match TodoListView
-    private var cancelButton: some View {
-        Button(action: { dismiss() }) {
-            Text("Cancel")
-                .fontWeight(.semibold)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(
-                    Color.white.opacity(0.2)
-                )
-                .cornerRadius(10)
-                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
-        }
-    }
-    
-    // Button stack
-    private var buttonStack: some View {
-        VStack(spacing: 16) {
-            saveButton
-            removeButton
-            cancelButton
-        }
-    }
-    
-    // Main content
-    private var mainContent: some View {
-        VStack(alignment: .center, spacing: 24) {
-            Text("Add ICS Calendar")
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-            
-            urlInputField
-            statusMessages
-            
-            Spacer(minLength: 30)
-            
-            buttonStack
-                .padding(.bottom, 30)
-        }
-        .padding(.top, 20)
-        .padding(.horizontal, 16)
-    }
-    
-    // Main body
     var body: some View {
         NavigationStack {
             ZStack {
-                backgroundView
+                // Use the app's background gradient
+                theme.backgroundGradient
+                    .ignoresSafeArea()
                 
                 ScrollView {
-                    mainContent
+                    VStack(spacing: 24) {
+                        Text("Sync Your Calendar")
+                            .font(theme.titleFont(size: 22))
+                            .foregroundColor(theme.textPrimary)
+                        
+                        Text("Enter your ICS feed URL to import tasks.")
+                            .font(theme.bodyFont())
+                            .foregroundColor(theme.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                        
+                        // Input field with styling
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Calendar URL")
+                                .font(theme.captionFont())
+                                .foregroundColor(theme.textSecondary)
+                                .padding(.leading, 4)
+                            
+                            TextField("https://example.com/calendar.ics", text: $urlInput)
+                                .padding()
+                                .background(
+                                    RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                                        .fill(theme.cardBackgroundAlt)
+                                )
+                                .foregroundColor(theme.textPrimary)
+                                .keyboardType(.URL)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Show error message if any
+                        if let errorMessage = errorMessage {
+                            Text(errorMessage)
+                                .foregroundColor(theme.errorColor)
+                                .font(theme.captionFont())
+                                .padding(.horizontal)
+                                .multilineTextAlignment(.center)
+                        }
+                        
+                        // Status indicator
+                        if isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: theme.accentColor))
+                                .padding()
+                        }
+                        
+                        // Action buttons
+                        VStack(spacing: 16) {
+                            Button(action: saveICS) {
+                                Text("Sync Calendar")
+                                    .font(theme.bodyFont())
+                                    .fontWeight(.semibold)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(theme.taskButtonGradient)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(theme.cornerRadiusMedium)
+                                    .modifier(theme.buttonShadow())
+                            }
+                            .disabled(isLoading || urlInput.isEmpty)
+                            
+                            if taskVM.icsLink != nil {
+                                Button(action: removeICS) {
+                                    Text("Remove Calendar")
+                                        .font(theme.bodyFont())
+                                        .fontWeight(.semibold)
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(
+                                            RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                                                .fill(theme.errorColor.opacity(0.8))
+                                        )
+                                        .foregroundColor(.white)
+                                        .cornerRadius(theme.cornerRadiusMedium)
+                                        .modifier(theme.buttonShadow())
+                                }
+                            }
+                            
+//                            Button(action: {
+//                                // Use sample URL
+//                                urlInput = "https://calbaptist.blackboard.com/webapps/calendar/calendarFeed/02190916b6604c7ba3be7648eddd9f4f/learn.ics"
+//                            }) {
+//                                Text("Use Sample URL")
+//                                    .font(theme.bodyFont())
+//                                    .frame(maxWidth: .infinity)
+//                                    .padding()
+//                                    .background(theme.cardBackground)
+//                                    .foregroundColor(theme.textSecondary)
+//                                    .cornerRadius(theme.cornerRadiusMedium)
+//                            }
+//                            .disabled(isLoading)
+                            
+                            Button(action: {
+                                dismiss()
+                            }) {
+                                Text("Cancel")
+                                    .font(theme.bodyFont())
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                                            .fill(theme.cardBackground.opacity(0.5))
+                                    )
+                                    .foregroundColor(theme.textSecondary)
+                                    .cornerRadius(theme.cornerRadiusMedium)
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        Spacer(minLength: 50)
+                    }
+                    .padding(.top, 20)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Calendar Integration")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(theme.titleFont())
+                        .foregroundColor(theme.textPrimary)
+                }
+                
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .foregroundColor(theme.errorColor)
                 }
             }
             .onAppear {
                 urlInput = taskVM.icsLink ?? ""
             }
         }
-        .preferredColorScheme(.dark) // Force dark mode to match TodoListView
+        .preferredColorScheme(.dark)
     }
     
     private func saveICS() {
@@ -177,24 +164,53 @@ struct ICSFeedView: View {
             errorMessage = "Invalid URL or user not logged in."
             return
         }
+        
+        guard let _ = URL(string: urlInput) else {
+            errorMessage = "Invalid URL format. Please enter a valid URL."
+            return
+        }
+        
         isLoading = true
-        taskVM.saveICSLink(urlInput, for: userId)
-        isLoading = false
-        dismiss()
+        errorMessage = nil
+        
+        taskVM.saveICSLink(urlInput, for: userId) { success in
+            DispatchQueue.main.async {
+                self.isLoading = false
+                if success {
+                    self.dismiss()
+                } else {
+                    self.errorMessage = "Failed to sync calendar. Please check your URL and try again."
+                }
+            }
+        }
     }
     
     private func removeICS() {
-        guard let userId = sessionManager.currentUserId else { return }
-        taskVM.removeICSLink(for: userId)
-        urlInput = ""
+        guard let userId = sessionManager.currentUserId else {
+            return
+        }
+        
+        isLoading = true
+        
+        taskVM.removeICSLink(for: userId) { success in
+            DispatchQueue.main.async {
+                self.isLoading = false
+                if success {
+                    self.urlInput = ""
+                } else {
+                    self.errorMessage = "Failed to remove ICS link"
+                }
+            }
+        }
     }
 }
 
+// Preview provider for SwiftUI canvas
 struct ICSFeedView_Previews: PreviewProvider {
     static var previews: some View {
         ICSFeedView()
             .environmentObject(SessionManager())
             .environmentObject(TaskViewModel())
-            .preferredColorScheme(.dark) // Show only dark mode preview
+            .preferredColorScheme(.dark)
     }
 }

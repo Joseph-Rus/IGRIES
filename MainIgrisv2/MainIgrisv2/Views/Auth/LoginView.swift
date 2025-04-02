@@ -11,18 +11,15 @@ struct LoginView: View {
     @State private var errorMessage: String?
     @State private var showPasswordResetAlert: Bool = false
     @State private var passwordResetMessage: String = ""
+    @State private var showVerificationAlert: Bool = false
     
-    // Background gradient - already matches TodoListView
+    // Reference to ThemeManager
+    private let theme = ThemeManager.shared
+    
+    // Background gradient - using ThemeManager
     private var backgroundGradient: some View {
-        LinearGradient(
-            gradient: Gradient(colors: [
-                Color.blue.opacity(0.7),
-                Color.purple.opacity(0.7)
-            ]),
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
+        theme.backgroundGradient
+            .ignoresSafeArea()
     }
     
     var body: some View {
@@ -34,82 +31,77 @@ struct LoginView: View {
                     Spacer()
                     
                     Text("IGRIS")
-                        .font(.largeTitle)
+                        .font(theme.titleFont(size: 34))
                         .fontWeight(.bold)
-                        .foregroundColor(.white)
+                        .foregroundColor(theme.textPrimary)
                     
                     Image("MainKnight")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 100, height: 100)
-                        .cornerRadius(10) // Updated to match TodoListView rounded corners
-                        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2) // Updated to match TodoListView shadow
+                        .cornerRadius(theme.cornerRadiusMedium)
+                        .modifier(theme.standardShadow(radius: 3, x: 0, y: 2))
                     
                     VStack(spacing: 15) {
                         TextField("Email", text: $email)
                             .textContentType(.emailAddress)
                             .keyboardType(.emailAddress)
                             .padding(10)
-                            .background(Color.white.opacity(0.2)) // Already matches TodoListView
-                            .cornerRadius(10) // Updated to match TodoListView rounded corners
+                            .background(theme.cardBackgroundAlt)
+                            .cornerRadius(theme.cornerRadiusMedium)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 10) // Updated to match corner radius
-                                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                                    .stroke(theme.textSecondary.opacity(0.5), lineWidth: 1)
                             )
-                            .foregroundColor(.white)
+                            .foregroundColor(theme.textPrimary)
                             .frame(width: 250)
                         
                         SecureField("Password", text: $password)
                             .textContentType(.password)
                             .padding(10)
-                            .background(Color.white.opacity(0.2)) // Already matches TodoListView
-                            .cornerRadius(10) // Updated to match TodoListView rounded corners
+                            .background(theme.cardBackgroundAlt)
+                            .cornerRadius(theme.cornerRadiusMedium)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 10) // Updated to match corner radius
-                                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                                    .stroke(theme.textSecondary.opacity(0.5), lineWidth: 1)
                             )
-                            .foregroundColor(.white)
+                            .foregroundColor(theme.textPrimary)
                             .frame(width: 250)
                         
                         if let errorMessage = errorMessage {
                             Text(errorMessage)
-                                .foregroundColor(.white)
+                                .foregroundColor(theme.textPrimary)
                                 .multilineTextAlignment(.center)
                                 .frame(width: 250)
                                 .padding(8)
-                                .background(Color.red.opacity(0.3))
-                                .cornerRadius(10) // Updated to match TodoListView rounded corners
+                                .background(theme.errorColor.opacity(0.3))
+                                .cornerRadius(theme.cornerRadiusMedium)
                         }
                         
                         Button(action: login) {
                             Text("Sign In")
-                                .foregroundColor(.white)
+                                .foregroundColor(theme.textPrimary)
+                                .font(theme.bodyFont())
                                 .fontWeight(.bold)
                                 .padding(10)
                                 .frame(maxWidth: .infinity)
-                                .background(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [Color.blue, Color.purple]), // Updated to match TodoListView gradient
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .cornerRadius(10) // Updated to match TodoListView rounded corners
+                                .background(theme.taskButtonGradient)
+                                .cornerRadius(theme.cornerRadiusMedium)
                         }
                         .frame(width: 250)
-                        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2) // Updated to match TodoListView shadow
+                        .modifier(theme.buttonShadow())
                         
                         HStack {
                             Button("Create Account") {
                                 isLogin = false
                             }
-                            .foregroundColor(.white)
+                            .foregroundColor(theme.accentColor)
                             
                             Spacer()
                             
                             Button(action: forgotPassword) {
                                 Text("Forgot Password")
-                                    .foregroundColor(.white)
+                                    .foregroundColor(theme.accentColor)
                             }
                         }
                         .padding(.horizontal, 80)
@@ -127,8 +119,18 @@ struct LoginView: View {
             } message: {
                 Text(passwordResetMessage)
             }
+            .alert("Email Verification Required", isPresented: $showVerificationAlert) {
+                Button("Resend Verification Email") {
+                    if let user = Auth.auth().currentUser {
+                        sendEmailVerification(user: user)
+                    }
+                }
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Your email has not been verified yet. Please check your inbox for a verification link or request a new one.")
+            }
         }
-        .preferredColorScheme(.dark) // Already matches TodoListView
+        .preferredColorScheme(.dark)
     }
     
     private func login() {
@@ -141,10 +143,30 @@ struct LoginView: View {
                 if let error = error {
                     print("Login failed: \(error.localizedDescription)")
                     self.errorMessage = error.localizedDescription
+                } else if let user = authResult?.user {
+                    // Check if email is verified
+                    if user.isEmailVerified {
+                        print("Login succeeded, setting isAuthenticated to true")
+                        self.sessionManager.isAuthenticated = true
+                        self.resetToMain()
+                    } else {
+                        print("Email not verified")
+                        self.showVerificationAlert = true
+                        // Sign out since email is not verified
+                        try? Auth.auth().signOut()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func sendEmailVerification(user: User) {
+        user.sendEmailVerification { error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self.errorMessage = "Error sending verification email: \(error.localizedDescription)"
                 } else {
-                    print("Login succeeded, setting isAuthenticated to true")
-                    self.sessionManager.isAuthenticated = true
-                    self.resetToMain()
+                    self.errorMessage = "Verification email sent. Please check your inbox."
                 }
             }
         }
@@ -173,7 +195,6 @@ struct LoginView: View {
             let mainView = ContentView()
                 .environmentObject(sessionManager)
                 .environmentObject(TaskViewModel())
-                .environmentObject(EventViewModel())
             window.rootViewController = UIHostingController(rootView: mainView)
             window.makeKeyAndVisible()
             print("Root view reset to ContentView after login")

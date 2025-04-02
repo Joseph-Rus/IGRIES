@@ -9,6 +9,14 @@ struct SplashScreenView: View {
     @State private var logoScale: CGFloat = 0.8
     @State private var rotation: Double = 0
     
+    // Modern dark theme colors
+    private let accentColor = Color(hexString: "6C5CE7")
+    private let secondaryAccent = Color(hexString: "A29BFE")
+    private let darkBackground = Color(hexString: "0F1120")
+    private let cardBackground = Color(hexString: "1A1B2E")
+    private let textPrimary = Color(hexString: "FFFFFF")
+    private let textSecondary = Color(hexString: "A0A0B2")
+    
     // College-themed floating objects animation
     @State private var floatingObjects: [FloatingObject] = [
         FloatingObject(icon: "book.fill", position: CGPoint(x: 50, y: 200), scale: 0.8, rotation: 15),
@@ -22,34 +30,34 @@ struct SplashScreenView: View {
     
     var body: some View {
         ZStack {
-            // Background gradient - matched with TodoListView
+            // Background gradient - modern dark
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color.blue.opacity(0.7),
-                    Color.purple.opacity(0.7)
+                    Color(hexString: "0F1120"),
+                    Color(hexString: "151937")
                 ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                startPoint: .top,
+                endPoint: .bottom
             )
             .ignoresSafeArea()
             
             // Animated circles in background
             ZStack {
                 Circle()
-                    .fill(Color.white.opacity(0.1))
-                    .frame(width: 200)
+                    .fill(accentColor.opacity(0.05))
+                    .frame(width: 220)
                     .offset(x: -40, y: -100)
                     .scaleEffect(isAnimating ? 1.2 : 0.8)
                 
                 Circle()
-                    .fill(Color.white.opacity(0.1))
-                    .frame(width: 150)
+                    .fill(secondaryAccent.opacity(0.05))
+                    .frame(width: 180)
                     .offset(x: 100, y: 50)
                     .scaleEffect(isAnimating ? 1.0 : 0.6)
                 
                 Circle()
-                    .fill(Color.white.opacity(0.1))
-                    .frame(width: 250)
+                    .fill(accentColor.opacity(0.07))
+                    .frame(width: 280)
                     .offset(x: 50, y: 200)
                     .scaleEffect(isAnimating ? 1.1 : 0.7)
             }
@@ -58,24 +66,24 @@ struct SplashScreenView: View {
             // Floating college-themed objects animation
             ZStack {
                 ForEach(floatingObjects.indices, id: \.self) { index in
-                    FloatingObjectView(object: $floatingObjects[index])
+                    FloatingObjectView(object: $floatingObjects[index], accentColor: accentColor, secondaryAccent: secondaryAccent)
                 }
             }
             
-            VStack(spacing: 30) {
+            VStack(spacing: 35) {
                 // Logo with glow and rotation
                 ZStack {
                     // Glow effect
                     Circle()
                         .fill(
                             RadialGradient(
-                                gradient: Gradient(colors: [Color.blue.opacity(0.5), Color.clear]),
+                                gradient: Gradient(colors: [accentColor.opacity(0.3), Color.clear]),
                                 center: .center,
                                 startRadius: 20,
-                                endRadius: 100
+                                endRadius: 120
                             )
                         )
-                        .frame(width: 150, height: 150)
+                        .frame(width: 160, height: 160)
                         .scaleEffect(isAnimating ? 1.2 : 0.8)
                         .opacity(showLogo ? 1 : 0)
                     
@@ -84,31 +92,36 @@ struct SplashScreenView: View {
                         .scaledToFit()
                         .frame(width: 120, height: 120)
                         .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.white, lineWidth: 3))
-                        .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
+                        .overlay(Circle().stroke(accentColor, lineWidth: 3))
+                        .shadow(color: .black.opacity(0.3), radius: 15, x: 0, y: 8)
                         .scaleEffect(logoScale)
                         .rotationEffect(.degrees(rotation))
                         .opacity(showLogo ? 1 : 0)
                 }
                 
-                VStack(spacing: 15) {
+                VStack(spacing: 18) {
                     // App title with scale animation
                     Text("IGRIS")
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                        .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
+                        .font(.system(size: 46, weight: .bold, design: .rounded))
+                        .foregroundColor(textPrimary)
+                        .shadow(color: accentColor.opacity(0.6), radius: 8, x: 0, y: 4)
                         .scaleEffect(showTitle ? 1 : 0.5)
                         .opacity(showTitle ? 1 : 0)
                     
                     // Tagline with fade animation
                     Text("Your College Companion")
                         .font(.system(size: 18, weight: .medium, design: .rounded))
-                        .foregroundColor(Color.white.opacity(0.9))
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
+                        .foregroundColor(textSecondary)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 10)
                         .background(
                             Capsule()
-                                .fill(Color.white.opacity(0.2))
+                                .fill(cardBackground)
+                                .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
+                        )
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(accentColor.opacity(0.3), lineWidth: 1.5)
                         )
                         .opacity(showTagline ? 1 : 0)
                         .offset(y: showTagline ? 0 : 20)
@@ -118,13 +131,13 @@ struct SplashScreenView: View {
             // Progress bar at bottom
             VStack {
                 Spacer()
-                ProgressBarView()
-                    .frame(width: 200, height: 4)
-                    .padding(.bottom, 50)
+                ModernProgressBarView(accentColor: accentColor, secondaryAccent: secondaryAccent)
+                    .frame(width: 220, height: 4)
+                    .padding(.bottom, 60)
                     .opacity(isAnimating ? 1 : 0)
             }
         }
-        .preferredColorScheme(.dark) // Match TodoListView dark mode
+        .preferredColorScheme(.dark)
         .onAppear {
             // Start animation sequence
             withAnimation(.easeOut(duration: 0.5).delay(0.2)) {
@@ -193,78 +206,77 @@ struct FloatingObject {
 // View for floating college-themed objects
 struct FloatingObjectView: View {
     @Binding var object: FloatingObject
+    var accentColor: Color
+    var secondaryAccent: Color
     
     var body: some View {
         Image(systemName: object.icon)
             .font(.system(size: 24 * object.scale))
-            .foregroundColor(.white.opacity(0.5))
+            .foregroundColor(
+                [accentColor.opacity(0.3), secondaryAccent.opacity(0.3)].randomElement()!
+            )
             .position(object.position)
             .offset(object.offset)
             .rotationEffect(.degrees(object.rotation + object.currentRotation))
+            .shadow(color: accentColor.opacity(0.1), radius: 5, x: 0, y: 3)
     }
 }
 
-// Progress bar animation (more modern than dots)
-struct ProgressBarView: View {
+// Modern progress bar animation
+struct ModernProgressBarView: View {
     @State private var progress: CGFloat = 0
+    var accentColor: Color
+    var secondaryAccent: Color
     
     var body: some View {
         ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(Color.white.opacity(0.2))
-                .frame(height: 4)
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color(hexString: "2D2E45"))
+                .frame(height: 6)
             
-            RoundedRectangle(cornerRadius: 2)
+            RoundedRectangle(cornerRadius: 3)
                 .fill(
                     LinearGradient(
-                        gradient: Gradient(colors: [.blue, .purple]),
+                        gradient: Gradient(colors: [accentColor, secondaryAccent]),
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
-                .frame(width: 200 * progress, height: 4)
+                .frame(width: 220 * progress, height: 6)
         }
         .onAppear {
-            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
+            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
                 progress = 1.0
             }
         }
     }
 }
 
-// Particle Effect (additional animation)
-struct ParticleEffect: View {
-    @State private var particles: [Particle] = []
-    
-    var body: some View {
-        ZStack {
-            ForEach(particles.indices, id: \.self) { index in
-                Circle()
-                    .fill(Color.white.opacity(particles[index].opacity))
-                    .frame(width: particles[index].size, height: particles[index].size)
-                    .position(particles[index].position)
-            }
+// MARK: - Color Extension
+extension Color {
+    init(hexString: String) {
+        let hex = hexString.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
         }
-        .onAppear {
-            // Generate particles
-            for _ in 0..<20 {
-                let particle = Particle(
-                    position: CGPoint(
-                        x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
-                        y: CGFloat.random(in: 0...UIScreen.main.bounds.height)
-                    ),
-                    size: CGFloat.random(in: 2...5),
-                    opacity: Double.random(in: 0.3...0.7)
-                )
-                particles.append(particle)
-            }
-        }
-    }
-    
-    struct Particle {
-        var position: CGPoint
-        var size: CGFloat
-        var opacity: Double
+        
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
     }
 }
 
