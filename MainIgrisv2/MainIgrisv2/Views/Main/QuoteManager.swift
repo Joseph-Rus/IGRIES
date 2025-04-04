@@ -12,6 +12,8 @@ class QuoteManager {
     // Collection of motivational quotes
     private let quotes: [Quote] = [
         // Success and Achievement
+        Quote(text: "The Struggle is real bro.", author: "Amanda Martinez"),
+        Quote(text: "SO COOKED!", author: "Joey Russell"),
         Quote(text: "The future depends on what you do today.", author: "Mahatma Gandhi"),
         Quote(text: "It always seems impossible until it's done.", author: "Nelson Mandela"),
         Quote(text: "Success is not final, failure is not fatal: It is the courage to continue that counts.", author: "Winston Churchill"),

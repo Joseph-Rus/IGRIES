@@ -8,6 +8,9 @@ struct ProfileView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
     
+    // Access ThemeManager
+    private let theme = ThemeManager.shared
+    
     @State private var showingLogoutAlert = false
     @State private var showingDeleteAccountAlert = false
     @State private var showingDeleteConfirmationAlert = false
@@ -19,34 +22,13 @@ struct ProfileView: View {
     // Photo picking states
     @State private var profileImage: UIImage?
     @State private var showingImagePicker = false
-    @State private var showingCameraSheet = false
-    @State private var showingImageSourceOptions = false
-    
-    // Modern dark theme colors
-    private let accentColor = Color(hex: "6C5CE7")
-    private let secondaryAccent = Color(hex: "A29BFE")
-    private let darkBackground = Color(hex: "0F1120")
-    private let cardBackground = Color(hex: "1A1B2E")
-    private let textPrimary = Color(hex: "FFFFFF")
-    private let textSecondary = Color(hex: "A0A0B2")
-    
-    // Background gradient - modern dark
-    private var backgroundGradient: some View {
-        LinearGradient(
-            gradient: Gradient(colors: [
-                Color(hex: "0F1120"),
-                Color(hex: "151937")
-            ]),
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea()
-    }
     
     var body: some View {
         NavigationStack {
             ZStack {
-                backgroundGradient
+                // Use theme's background gradient
+                theme.backgroundGradient
+                    .ignoresSafeArea()
                 
                 // Content
                 ScrollView {
@@ -67,18 +49,18 @@ struct ProfileView: View {
                             }
                             .frame(width: 120, height: 120)
                             .clipShape(Circle())
-                            .overlay(Circle().stroke(accentColor, lineWidth: 3))
+                            .overlay(Circle().stroke(theme.accentColor, lineWidth: 3))
                             .shadow(color: Color.black.opacity(0.2), radius: 8)
                             .padding(5)
                             .onTapGesture {
-                                showingImageSourceOptions = true
+                                showingImagePicker = true
                             }
                             
                             // User name (editable)
                             TextField("Enter your name", text: $userName)
-                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .font(theme.titleFont(size: 22))
                                 .multilineTextAlignment(.center)
-                                .foregroundColor(textPrimary)
+                                .foregroundColor(theme.textPrimary)
                                 .submitLabel(.done)
                                 .onSubmit {
                                     saveUserName()
@@ -98,9 +80,9 @@ struct ProfileView: View {
                         }
                         .padding(20)
                         .background(
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(cardBackground)
-                                .shadow(color: Color.black.opacity(0.15), radius: 15, x: 0, y: 5)
+                            RoundedRectangle(cornerRadius: theme.cornerRadiusLarge)
+                                .fill(theme.cardBackground)
+                                .modifier(theme.standardShadow())
                         )
                         .padding(.horizontal)
                         
@@ -109,48 +91,50 @@ struct ProfileView: View {
                         VStack(spacing: 16) {
                             // Logout button
                             Button(action: {
+                                theme.configureAlertAppearance()
                                 showingLogoutAlert = true
                             }) {
                                 HStack {
                                     Image(systemName: "rectangle.portrait.and.arrow.right")
                                         .font(.system(size: 16, weight: .semibold))
                                     Text("Logout")
-                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .font(theme.bodyFont(size: 16))
                                 }
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                                 .background(
                                     LinearGradient(
-                                        gradient: Gradient(colors: [Color(hex: "FF4757"), Color(hex: "FF6B81")]),
+                                        gradient: Gradient(colors: [theme.errorColor, Color(hexCode: "FF6B81")]),
                                         startPoint: .leading,
                                         endPoint: .trailing
                                     )
                                 )
-                                .cornerRadius(16)
-                                .shadow(color: Color(hex: "FF4757").opacity(0.3), radius: 10, x: 0, y: 5)
+                                .cornerRadius(theme.cornerRadiusMedium)
+                                .shadow(color: theme.errorColor.opacity(0.3), radius: 10, x: 0, y: 5)
                             }
                             
                             // Delete account button
                             Button(action: {
+                                theme.configureAlertAppearance()
                                 showingDeleteAccountAlert = true
                             }) {
                                 HStack {
                                     Image(systemName: "trash.fill")
                                         .font(.system(size: 16, weight: .semibold))
                                     Text("Delete Account")
-                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .font(theme.bodyFont(size: 16))
                                 }
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                                 .background(
-                                    Color(hex: "2C2C4A")
+                                    Color(hexCode: "2C2C4A")
                                 )
-                                .cornerRadius(16)
+                                .cornerRadius(theme.cornerRadiusMedium)
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Color(hex: "FF4757"), lineWidth: 1)
+                                    RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                                        .stroke(theme.errorColor, lineWidth: 1)
                                 )
                             }
                         }
@@ -190,45 +174,30 @@ struct ProfileView: View {
             } message: {
                 Text("Profile updated successfully")
             }
-            .actionSheet(isPresented: $showingImageSourceOptions) {
-                ActionSheet(
-                    title: Text("Select Profile Image"),
-                    message: Text("Choose a source"),
-                    buttons: [
-                        .default(Text("Photo Library")) {
-                            showingImagePicker = true
-                        },
-                        .default(Text("Camera")) {
-                            showingCameraSheet = true
-                        },
-                        .cancel()
-                    ]
-                )
-            }
             .sheet(isPresented: $showingImagePicker) {
                 PhotoPicker(selectedImage: $profileImage)
-            }
-            .sheet(isPresented: $showingCameraSheet) {
-                CameraView(selectedImage: $profileImage)
             }
             .onAppear {
                 loadUserData()
                 loadProfileImage()
+                
+                // Configure alert appearance once at view appear
+                theme.configureAlertAppearance()
             }
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Profile")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                        .foregroundColor(textPrimary)
+                        .font(theme.titleFont(size: 18))
+                        .foregroundColor(theme.textPrimary)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: saveUserName) {
                         Text("Save")
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
-                            .foregroundColor(accentColor)
+                            .font(theme.bodyFont(size: 16))
+                            .foregroundColor(theme.accentColor)
                     }
                 }
             }
@@ -239,8 +208,8 @@ struct ProfileView: View {
     private func infoSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             Text(title)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
-                .foregroundColor(textPrimary)
+                .font(theme.titleFont(size: 18))
+                .foregroundColor(theme.textPrimary)
                 .padding(.horizontal, 4)
             
             content()
@@ -251,30 +220,30 @@ struct ProfileView: View {
         HStack {
             ZStack {
                 Circle()
-                    .fill(accentColor.opacity(0.2))
+                    .fill(theme.accentColor.opacity(0.2))
                     .frame(width: 36, height: 36)
                 
                 Image(systemName: icon)
                     .font(.system(size: 16))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(theme.accentColor)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(textSecondary)
+                    .font(theme.captionFont(size: 13))
+                    .foregroundColor(theme.textSecondary)
                 
                 Text(value)
-                    .font(.system(size: 16, design: .rounded))
-                    .foregroundColor(textPrimary)
+                    .font(theme.bodyFont(size: 16))
+                    .foregroundColor(theme.textPrimary)
             }
             
             Spacer()
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(hex: "1D1E33"))
+            RoundedRectangle(cornerRadius: theme.cornerRadiusMedium)
+                .fill(theme.cardBackgroundAlt)
         )
     }
     
@@ -398,7 +367,7 @@ struct ProfileView: View {
     }
 }
 
-// Photo Picker using PhotosUI
+// Photo Picker with improved text visibility
 struct PhotoPicker: UIViewControllerRepresentable {
     @Binding var selectedImage: UIImage?
     @Environment(\.presentationMode) var presentationMode
@@ -410,6 +379,13 @@ struct PhotoPicker: UIViewControllerRepresentable {
         
         let picker = PHPickerViewController(configuration: configuration)
         picker.delegate = context.coordinator
+        
+        // Apply theme to picker
+        ThemeManager.shared.configureAlertAppearance()
+        
+        // Force dark mode for the picker for better text visibility
+        picker.overrideUserInterfaceStyle = .dark
+        
         return picker
     }
     
@@ -421,7 +397,6 @@ struct PhotoPicker: UIViewControllerRepresentable {
         Coordinator(self)
     }
     
-    // Optimize the image picking with these changes to PhotoPicker Coordinator:
     class Coordinator: NSObject, PHPickerViewControllerDelegate {
         let parent: PhotoPicker
         
@@ -486,82 +461,5 @@ struct PhotoPicker: UIViewControllerRepresentable {
     }
 }
 
-// Camera View for taking photos
-struct CameraView: UIViewControllerRepresentable {
-    @Binding var selectedImage: UIImage?
-    @Environment(\.presentationMode) var presentationMode
-    
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.delegate = context.coordinator
-        picker.sourceType = .camera
-        picker.allowsEditing = true
-        return picker
-    }
-    
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {
-        // Nothing to update
-    }
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-    
-    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: CameraView
-        
-        init(_ parent: CameraView) {
-            self.parent = parent
-        }
-        
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-            if let editedImage = info[.editedImage] as? UIImage {
-                parent.selectedImage = editedImage
-            } else if let originalImage = info[.originalImage] as? UIImage {
-                parent.selectedImage = originalImage
-            }
-            
-            parent.presentationMode.wrappedValue.dismiss()
-        }
-        
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.presentationMode.wrappedValue.dismiss()
-        }
-    }
-}
-
-// MARK: - Color Extension
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            (a, r, g, b) = (1, 1, 1, 0)
-        }
-        
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue:  Double(b) / 255,
-            opacity: Double(a) / 255
-        )
-    }
-}
-
-struct ProfileView_Previews: PreviewProvider {
-    static var previews: some View {
-        ProfileView()
-            .environmentObject(SessionManager())
-            .preferredColorScheme(.dark)
-    }
-}
+// Note: Application entry point has been removed from this file
+// as it should be in your main App file instead

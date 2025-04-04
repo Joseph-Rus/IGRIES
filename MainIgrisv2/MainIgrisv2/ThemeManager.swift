@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // Custom Shadow Modifier
 struct Shadow: ViewModifier {
@@ -28,9 +29,9 @@ final class ThemeManager {
     let cardBackground = Color(hexCode: "1A1B2E")   // Card background
     let cardBackgroundAlt = Color(hexCode: "1D1E33") // Alternate card background
     
-    // Text colors
-    let textPrimary = Color(hexCode: "FFFFFF")      // White text
-    let textSecondary = Color(hexCode: "A0A0B2")    // Gray text
+    // Text colors - UPDATED for better visibility
+    let textPrimary = Color.white                   // Pure white for maximum contrast
+    let textSecondary = Color(hexCode: "D0D0E2")    // Lighter gray text (brightened from A0A0B2)
     
     // Semantic colors
     let errorColor = Color(hexCode: "FF4757")       // Red for errors/overdue
@@ -111,6 +112,118 @@ final class ThemeManager {
         .system(size: size, weight: .medium, design: .rounded)
     }
     
+    // MARK: - UI Element Styling
+    
+    // Configure action sheets and alerts for better text visibility
+    func configureAlertAppearance() {
+        // Force dark mode for all alerts and action sheets
+        UIView.appearance(whenContainedInInstancesOf: [UIAlertController.self]).overrideUserInterfaceStyle = .dark
+        
+        // Make text WHITE in action sheets (changed from default)
+        UILabel.appearance(whenContainedInInstancesOf: [UIAlertController.self]).textColor = UIColor.white
+        
+        // Style buttons in action sheets
+        let buttonAppearance = UIButton.appearance(whenContainedInInstancesOf: [UIAlertController.self])
+        buttonAppearance.setTitleColor(UIColor(accentColor), for: .normal)
+        
+        // Make cancel buttons a different color (instead of "destructive" which doesn't exist as a UIControl.State)
+        // We use highlighted state to make text red when tapped
+        buttonAppearance.setTitleColor(UIColor(errorColor), for: .highlighted)
+        
+        // Attempt to set background color for action sheets (may not work on all iOS versions)
+        UIView.appearance(whenContainedInInstancesOf: [UIAlertController.self]).backgroundColor = UIColor(cardBackground)
+    }
+    
+    // Configure tab bar appearance
+    func configureTabBarAppearance() {
+        // Set unselected tab items to a visible color
+        UITabBar.appearance().unselectedItemTintColor = UIColor(textSecondary)
+        
+        // Set selected tab items to accent color
+        UITabBar.appearance().tintColor = UIColor(accentColor)
+        
+        // Add slight background to tab bar
+        UITabBar.appearance().backgroundColor = UIColor(darkBackground.opacity(0.7))
+        
+        // Make tab bar slightly translucent
+        UITabBar.appearance().isTranslucent = true
+    }
+    
+    // Apply theme across app
+    func applyGlobalTheme() {
+        configureAlertAppearance()
+        configureTabBarAppearance()
+        
+        // Force all views to use dark mode
+        UIView.appearance().overrideUserInterfaceStyle = .dark
+        
+        // Force all pickers to use dark mode with white text
+        let pickerAppearance = UIPickerView.appearance()
+        pickerAppearance.overrideUserInterfaceStyle = .dark
+        
+        // Force all alerts and sheet presenters to use dark mode
+        let alertAppearance = UIView.appearance(whenContainedInInstancesOf: [UIAlertController.self])
+        alertAppearance.overrideUserInterfaceStyle = .dark
+        
+        // Ensure all pickers and photo pickers have visible text
+        UILabel.appearance().textColor = .white
+    }
+    
+    // Custom action sheet method that works with better visibility
+    func actionSheet(
+        title: String,
+        message: String,
+        buttons: [ActionSheetButton]
+    ) -> ActionSheet {
+        // First ensure appearance is configured
+        configureAlertAppearance()
+        
+        // Convert our custom buttons to ActionSheet.Button
+        var actionButtons: [ActionSheet.Button] = []
+        
+        for button in buttons {
+            switch button.style {
+            case .default:
+                actionButtons.append(.default(Text(button.title), action: button.action))
+            case .destructive:
+                actionButtons.append(.destructive(Text(button.title), action: button.action))
+            case .cancel:
+                actionButtons.append(.cancel(Text(button.title), action: button.action))
+            }
+        }
+        
+        return ActionSheet(
+            title: Text(title),
+            message: Text(message),
+            buttons: actionButtons
+        )
+    }
+    
+    // Custom button style for use with action sheets
+    struct ActionSheetButton {
+        enum Style {
+            case `default`
+            case destructive
+            case cancel
+        }
+        
+        let title: String
+        let style: Style
+        let action: (() -> Void)?
+        
+        static func `default`(_ title: String, action: (() -> Void)? = nil) -> ActionSheetButton {
+            ActionSheetButton(title: title, style: .default, action: action)
+        }
+        
+        static func destructive(_ title: String, action: (() -> Void)? = nil) -> ActionSheetButton {
+            ActionSheetButton(title: title, style: .destructive, action: action)
+        }
+        
+        static func cancel(_ title: String = "Cancel", action: (() -> Void)? = nil) -> ActionSheetButton {
+            ActionSheetButton(title: title, style: .cancel, action: action)
+        }
+    }
+    
     // Private initializer for singleton
     private init() {}
 }
@@ -140,5 +253,17 @@ extension Color {
             blue: Double(b) / 255,
             opacity: Double(a) / 255
         )
+    }
+}
+
+// MARK: - UIColor Extension for SwiftUI Color Conversion
+extension UIColor {
+    convenience init(_ color: Color) {
+        if let cgColor = color.cgColor {
+            self.init(cgColor: cgColor)
+        } else {
+            // Fallback to a visible color in case conversion fails
+            self.init(white: 0.8, alpha: 1.0)
+        }
     }
 }

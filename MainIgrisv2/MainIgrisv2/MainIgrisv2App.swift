@@ -10,6 +10,12 @@ struct MainIgrisv2App: App {
     
     init() {
         FirebaseApp.configure() // Firebase initialization
+        
+        // Apply global theme settings for better text visibility
+        ThemeManager.shared.applyGlobalTheme()
+        
+        // Force all presented views to use dark mode
+        UIView.appearance().overrideUserInterfaceStyle = .dark
     }
     
     var body: some Scene {
@@ -21,6 +27,7 @@ struct MainIgrisv2App: App {
                     ContentView()
                         .environmentObject(sessionManager)
                         .environmentObject(taskVM)
+                        .preferredColorScheme(.dark) // Force dark mode at SwiftUI level
                 }
             }
             .onAppear {
