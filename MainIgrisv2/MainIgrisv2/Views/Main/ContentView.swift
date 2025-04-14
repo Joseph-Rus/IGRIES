@@ -61,6 +61,9 @@ struct ContentView: View {
         .onAppear {
             print("ContentView appeared, isAuthenticated: \(sessionManager.isAuthenticated)")
             
+            // Set session manager reference in TaskViewModel
+            taskVM.setSessionManager(sessionManager)
+            
             // Ensure we fetch the todo list tasks when authenticated
             if sessionManager.isAuthenticated, let userId = sessionManager.currentUserId {
                 taskVM.fetchTasks(for: userId)
@@ -74,16 +77,22 @@ struct ContentView: View {
                         sessionManager.isEmailVerified = user.isEmailVerified
                         if user.isEmailVerified && !sessionManager.isAuthenticated {
                             sessionManager.isAuthenticated = true
+                            
+                            // If authenticated, set the session manager and fetch tasks
+                            taskVM.setSessionManager(sessionManager)
+                            taskVM.fetchTasks(for: user.uid)
                         }
                     }
                 }
             }
         }
-        .onChange(of: sessionManager.isAuthenticated) { _, newValue in
+        .onChange(of: sessionManager.isAuthenticated) { newValue in
             print("ContentView detected isAuthenticated change: \(newValue)")
             
             // Fetch todo list tasks when user becomes authenticated
             if newValue, let userId = sessionManager.currentUserId {
+                // Update session manager reference when authentication state changes
+                taskVM.setSessionManager(sessionManager)
                 taskVM.fetchTasks(for: userId)
             }
         }
@@ -92,9 +101,15 @@ struct ContentView: View {
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView()
-            .environmentObject(SessionManager())
-            .environmentObject(TaskViewModel())
+        let sessionManager = SessionManager()
+        let taskVM = TaskViewModel()
+        
+        // Set the session manager reference for the task view model
+        taskVM.setSessionManager(sessionManager)
+        
+        return ContentView()
+            .environmentObject(sessionManager)
+            .environmentObject(taskVM)
             .preferredColorScheme(.dark)
     }
 }
