@@ -1,53 +1,119 @@
-# Igris: Your Intelligent Digital Assistant  
+# IGRIS
 
-Igris is an advanced AI-powered assistant designed to streamline tasks, automate workflows, and enhance user interaction across various platforms. Inspired by JARVIS from Iron Man, Igris integrates natural language processing, machine learning, and real-time data processing to provide a seamless and interactive experience.  
+![IGRIS Knight](https://github.com/yourusername/igris/raw/main/Screenshots/igris_logo.png)
 
-## 🚀 Features  
+## Your College Companion
 
-- **🗣️ Voice & Text Interaction** – Communicate naturally through voice commands or text input.  
-- **⚡ Task Automation** – Execute commands, control devices, and manage workflows efficiently.  
-- **📊 Real-Time Data Processing** – Fetch, analyze, and present information dynamically.  
-- **🏠 Smart Home & IoT Integration** – Control smart devices, adjust settings, and automate home systems.  
-- **🤖 AI-Powered Assistance** – Perform complex computations, schedule tasks, and provide contextual suggestions.  
-- **🔗 API & System Interaction** – Connect with third-party applications, APIs, and system functionalities.  
-- **🎯 Personalized Learning** – Adapt to user preferences, improve responses, and evolve over time.  
+IGRIS is a powerful, beautifully designed productivity application built specifically for college students. Manage tasks, sync with Blackboard, track your academic progress, and stay motivated with a modern, sleek dark-mode interface.
 
-## 🔮 Future Capabilities  
+## Features
 
-- **📈 Advanced Predictive Analytics** – Anticipate user needs based on past interactions.  
-- **🔒 Enhanced Security & Privacy** – Secure data handling with encrypted communication.  
-- **🌍 Seamless Cross-Platform Access** – Operate across desktop, mobile, and embedded systems.  
+### Task Management
+- **Create & Organize Tasks**: Add deadlines, descriptions, and course information
+- **Smart Dashboard**: Get a quick overview of your day with visual progress indicators
+- **Todo List**: Prioritize important tasks and track completion
+- **Progress Tracking**: Visualize your daily productivity with elegant progress charts
 
-## 🛠️ Installation  
+### LMS Integration
+- **Blackboard Calendar Sync**: Automatically import assignments from Blackboard
+- **ICS Calendar Support**: Connect to your institution's calendar feed
+- **Course Association**: Tasks automatically tagged with the right course
 
-To get started with Igris, clone the repository:  
+### User Experience
+- **Modern Dark Interface**: Eye-friendly design with purple accents
+- **Intuitive Navigation**: Streamlined, distraction-free workflow
+- **Daily Motivation**: Inspirational quotes to keep you focused
+- **Cloud Sync**: Access your tasks across all your devices
 
+## Screenshots
+
+<div align="center">
+    <img src="https://github.com/yourusername/igris/raw/main/Screenshots/dashboard.png" width="30%" alt="Dashboard">
+    <img src="https://github.com/yourusername/igris/raw/main/Screenshots/tasks_view.png" width="30%" alt="Tasks">
+    <img src="https://github.com/yourusername/igris/raw/main/Screenshots/blackboard_sync.png" width="30%" alt="Blackboard Integration">
+</div>
+
+## Technical Details
+
+### Built With
+- **SwiftUI**: Modern declarative UI framework
+- **Firebase**: Authentication, Firestore database, and cloud storage
+- **Custom Theme Engine**: Dynamic UI styling with ThemeManager
+- **ICS Parser**: Calendar integration with educational platforms
+
+### Architecture
+- **MVVM Pattern**: Clean separation of concerns
+- **Theme Management**: Consistent styling throughout the app
+- **Notification System**: Smart reminders for upcoming deadlines
+
+## Installation
+
+### Requirements
+- iOS 15.0+
+- Xcode 13.0+
+- Active Firebase account
+
+### Setup
+1. Clone the repository
 ```bash
-git clone https://github.com/your-username/igris.git
+git clone https://github.com/yourusername/igris.git
+```
+
+2. Install CocoaPods dependencies
+```bash
 cd igris
+pod install
+```
 
+3. Open the workspace
+```bash
+open IGRIS.xcworkspace
+```
 
-file struct
+4. Configure Firebase
+   - Create a Firebase project
+   - Add your iOS app to the Firebase project
+   - Download the `GoogleService-Info.plist` file
+   - Add it to the project root
 
-igris/
-├── App/  
-│   ├── AppDelegate.swift
-│   └── SceneDelegate.swift         // if using UIKit with scenes
-├── Views/                          // SwiftUI views or UIKit view controllers
-├── Models/                         // Data models and structures
-├── Services/  
-│   ├── API/                        // C++ API layer and its wrappers
-│   │   ├── APIManager.hpp          // C++ header file
-│   │   ├── APIManager.cpp          // C++ implementation file
-│   │   ├── APIWrapper.h            // Objective-C++ wrapper header (interface to Swift)
-│   │   └── APIWrapper.mm           // Objective-C++ wrapper implementation file
-│   └── GoogleAPI/                  // Google API specific integrations
-│       ├── GoogleAPIWrapper.h      // Optional: wrapper for Google services if needed
-│       └── GoogleAPIWrapper.mm
-├── Resources/                      // Assets, storyboards, etc.
-├── Dependencies/                   // Optionally organize external dependencies info
-│   └── Pods/                       // Managed by CocoaPods (if used)
-├── Supporting Files/
-│   ├── Info.plist
-│   └── YourProject-Bridging-Header.h  // Exposes Objective-C++ wrappers to Swift
-└── Podfile                         // For Google dependencies and other libraries
+5. Build and run
+
+## Usage Guide
+
+### Getting Started
+1. Create an account or sign in
+2. Explore the dashboard to see your daily tasks and progress
+3. Add tasks through the "+" button on the home screen
+4. Connect to Blackboard using the Calendar Help feature
+
+### Blackboard Calendar Integration
+1. Log in to your Blackboard account
+2. Navigate to Calendar in the sidebar
+3. Access calendar settings via the gear icon
+4. Select "Share Calendar" from the dropdown menu
+5. Copy the ICS URL
+6. In IGRIS, go to Tasks → Calendar Feed and paste the URL
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- The amazing Swift and SwiftUI community
+- Firebase team for their excellent documentation
+- All college students whose feedback shaped this app
+
+---
+
+Built with ❤️ for students by students
