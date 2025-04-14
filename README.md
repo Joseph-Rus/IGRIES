@@ -27,7 +27,11 @@ IGRIS is a powerful, beautifully designed productivity application built specifi
 
 ## Screenshots
 
-<div align="center">![Simulator Screenshot - iPhone 16 - 2025-04-01 at 16 26 12](https://github.com/user-attachments/assets/526fb489-49f5-4469-946b-6d263646d6e9)
+<div align="center">
+    <img src="[https://github.com/yourusername/igris/raw/main/Screenshots/dashboard.png](https://github.com/user-attachments/assets/a1af8b96-ca5e-4159-a449-1f8596864236)" width="30%" alt="Dashboard">
+Integration">
+
+
 
 </div>
 
