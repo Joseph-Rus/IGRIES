@@ -1,7 +1,5 @@
 # IGRIS
 
-![IGRIS Knight](https://github.com/yourusername/igris/raw/main/Screenshots/igris_logo.png)
-
 ## Your College Companion
 
 IGRIS is a powerful, beautifully designed productivity application built specifically for college students. Manage tasks, sync with Blackboard, track your academic progress, and stay motivated with a modern, sleek dark-mode interface.
@@ -25,15 +23,6 @@ IGRIS is a powerful, beautifully designed productivity application built specifi
 - **Daily Motivation**: Inspirational quotes to keep you focused
 - **Cloud Sync**: Access your tasks across all your devices
 
-## Screenshots
-
-<div align="center">
-    <img src="[https://github.com/yourusername/igris/raw/main/Screenshots/dashboard.png](https://github.com/user-attachments/assets/a1af8b96-ca5e-4159-a449-1f8596864236)" width="30%" alt="Dashboard">
-Integration">
-
-
-
-</div>
 
 ## Technical Details
 
